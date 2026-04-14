@@ -1,0 +1,2104 @@
+1
+Decentralized Federated Learning with Distributed
+Aggregation Weight Optimization
+Zhiyuan Zhai, Xiaojun Yuan,Senior Member, IEEE, Xin Wang,Fellow, IEEE, and Geoffrey Ye Li,Fellow, IEEE
+Abstract—Decentralized federated learning (DFL) is an emerg-
+ing paradigm to enable edge devices collaboratively training a
+learning model using a device-to-device (D2D) communication
+manner without the coordination of a parameter server (PS).
+Aggregation weights, also known as mixing weights, are crucial
+in DFL process, and impact the learning efficiency and accuracy.
+Conventional design relies on a so-called central entity to collect
+all local information and conduct system optimization to obtain
+appropriate weights. In this paper, we develop a distributed
+aggregation weight optimization algorithm to align with the
+decentralized nature of DFL. We analyze convergence by quan-
+titatively capturing the impact of the aggregation weights over
+decentralized communication networks. Based on the analysis,
+we then formulate a learning performance optimization problem
+by designing the aggregation weights to minimize the derived
+convergence bound. The optimization problem is further trans-
+formed as an eigenvalue optimization problem and solved by our
+proposed subgradient-based algorithm in a distributed fashion. In
+our algorithm, edge devices only need local information to obtain
+the optimal aggregation weights through local (D2D) communi-
+cations, just like the learning itself. Therefore, the optimization,
+communication, and learning process can be all conducted in
+a distributed fashion, which leads to a genuinely distributed
+DFL system. Numerical results demonstrate the superiority of
+the proposed algorithm in practical DFL deployment.
+Index Terms—Decentralized federated learning, distributed
+aggregation weight optimization, communication networks.
+I. INTRODUCTION
+Due to the unprecedented increase in local data generated
+by edge devices, there is a rising trend in developing deep
+learning applications at the network edge, which span many
+research areas, including image recognition [1] and natural lan-
+guage processing [2]. However, traditional machine learning
+(ML) approaches need to collect data from the edge devices
+for centralized training, which consumes large communication
+bandwidth and causes potential privacy concerns. Federated
+learning (FL) [3]–[7], a novel machine learning paradigm, is
+capable of addressing these issues by enabling edge devices
+to collaboratively train a global learning model under the
+coordination of a parameter server (PS) . In FL, each device
+independently updates local model, such as model parameters
+or gradients, using its own datasets. These updates are then
+transmitted to the central PS, where the aggregated model is
+computed and broadcast back to the edge devices.
+One important limitation of FL is its heavy dependence
+on the central PS for parameter aggregation, which leads to
+huge communication overheads and decreases fault tolerance.
+Furthermore, in scenarios, such as autonomous robotics and
+collaborative driving [8], FL may be unrealistic due to the
+lack of a central PS. Decentralized federated learning (DFL)
+is a promising alternative to tackle these limitations. In DFL,
+the dependence on the PS is alleviated by allowing each
+device to maintain and refine its own local model, with model
+updates exchanged through device-to-device (D2D) communi-
+cations. The concept of DFL is inherited from decentralized
+optimization, which can be dated back to the 1980s [9],
+with the foundational algorithms, such as dual averaging [10],
+alternating direction method of multipliers (ADMM) [11], and
+gradient descent [12] being pivotal. Recently, decentralized
+stochastic gradient descent (DSGD) [13], [14] has appeared as
+an innovative algorithm for tackling large-scale decentralized
+optimization challenges. DSGD guarantees optimal conver-
+gence under assumptions on convexity, gradient function,
+and network connectivity. This approach has been further
+adapted to tackle various network configurations. For instance,
+the technique in [15] combines quantization, sparsification,
+and local computations to mitigate communication overhead.
+Moreover, the algorithm in [16] incorporates local SGD up-
+dates, synchronous communication, and pairwise gossip in
+dynamically changing network topologies.
+Aggregation weights, also known as mixing weights, have
+significant impacts on the learning performance of DFL.
+Since each device receives models from many other devices
+through D2D communication, these models must be aggre-
+gated with appropriate weight for training. When deploying
+DFL, aggregation weights are crucial to improve the training
+efficiency and learning accuracy [17], [18]. However, in a
+decentralized network, where DFL is deployed, aggregation
+weight design becomes very challenging due to the complexity
+of the network structure and the varying quality of D2D
+communication links. Many existing works, e.g., [19]–[24],
+have addressed this issue. However, all of them rely on the
+centralized approach and involve the collection of the local
+information from all devices. In these works, it is generally
+assumed that there exists a central entity (server or monitor)
+to gather the information from devices and link statistics, then
+optimize the aggregation weights accordingly. This approach
+fundamentally contradicts the spirit of decentralization in DFL
+design [25].
+In this paper, we investigate distributed aggregation weight
+optimization, where edge devices with local information co-
+operatively optimize aggregation weights through D2D com-
+munications, just like the DFL learning process. By using this
+design, the entire optimization, communication, and learning
+process can be conducted in a distributed manner, which forms
+a fully decentralized DFL system. Specifically, we consider a
+DFL system where devices exchanges models through D2D
+communication links and the quality of links are characterized
+arXiv:2511.03284v1 [eess.SP] 5 Nov 2025
+2
+by the link reliability metric. For this scenario, we conduct
+a rigorous convergence analysis to quantitatively reveal the
+impact of aggregation weights on the learning performance
+over the communication networks. Based on this analysis,
+aggregation weights are optimized to minimize the conver-
+gence bound, which is a non-convex eigenvalue optimization
+problem. In general, such a problem is hard to be solved
+in a distributed fashion. However, by exploiting the problem
+structure, we are able to develop a distributed subgradient-
+based algorithm to solve the problem over the communication
+network. Simulation results confirm our convergence analysis
+and demonstrate the superiority of the proposed distributed
+algorithm. Furthermore, the proposed distributed algorithm can
+achieve similar performance as centralized method.
+The rest of this paper is outlined as follows. Section II
+details the DFL learning model and the modeling of com-
+munication quality. Section III introduces the preliminary
+assumptions and derives a convergence bound. In Section IV ,
+we formulate the performance optimization problem and pro-
+pose a distributed algorithm to determine aggregation weights.
+Section V shows the simulation results, and the conclusion is
+provided in Section VI.
+Notations:We use the notation[M]to denote the set
+{i|1≤i≤M}and useRto denote the sets of real numbers.
+Scalars are represented by regular letters, vectors by bold
+lowercase letters, and matrices by bold capital letters. Symbol
+⊙denotes the Hadamard product (also known as the element-
+wise product) of two matrices of the same dimensions and(·) T
+indicates the transpose operator. Symbol Diag(A)converts
+a square matrixAinto a diagonal matrix by retaining the
+diagonal elements and setting all off-diagonal elements to zero.
+Symbolλ i(·)denotes thei-th largest eigenvalue of a matrix.
+Thei-th entry of a vectorxis denoted asx i, and the(i, j)-th
+entry of a matrixXis denoted asx ij. Thel 2-norm for vector
+and Frobenius norm∥·∥ F for matrix are both denoted as∥·∥.
+The expectation operator is denoted byE.1is used to denote
+a vector with all elements equal to1of appropriate dimension.
+The trace of a square matrix is denoted byTr(·). The identity
+matrix is denoted byI. The gradient of functionfis denoted
+as∇f(·).
+II. SYSTEMMODEL
+We first describe the decentralized federated learning (DFL)
+model. In the DFL system, a set ofMdevices collaboratively
+conduct the training of a machine learning (ML) model,
+where the common objective is to minimize an empirical loss
+function, given by
+f(x) = 1
+M
+MX
+i=1
+fi(x),(1)
+wherex∈R D represents the model andDdenotes the
+dimensionality of the parameter space. For an arbitrary device
+i, the local loss functionf i :R D →R, is formulated as
+fi(x) :=E ξi∈Di F(x, ξ i),(2)
+whereD i is the local dataset on deviceiandF(x, ξ i)is the
+loss function with respect to samplesξ i.
+TABLE I
+SUMMARY OFMAINNOTATIONS
+Notation Definition
+P;p ij Link reliability matrix;(i, j)-th element ofP
+S(t);s (t)
+ij Transmission matrix at roundt;(i, j)-th element ofS (t)
+W;w ij Aggregation weight matrix;(i, j)-th element ofW
+cW(t);bw(t)
+ij Mixing matrix at roundt;(i, j)-th element of cW(t)
+W; wij Expectation of cW(t);(i, j)-th element of W
+W2; w2ij Expectation of( cW(t))2;(i, j)-th element of W2
+ρ(W) Second-largest eigenvalue (in magnitude) of W
+ρ(W2) Second-largest eigenvalue (in magnitude) of W2
+In such a system, the devices compute the local model
+by minimizing their local loss function, and exchange the
+acquired model through D2D communications. Most of re-
+cent decentralized learning frameworks [13]–[16] also assume
+stable and reliable communication links. However, in practical
+networks, the communication system is prone to transmission
+distortion or failure. The practical conditions, such as channel
+fading, additive noise, path loss, and limited resources, make
+the D2D link unreliable. During each communication round,
+only a subset of the links can achieve successful communica-
+tion. The quality of link can be quantified by a link reliability
+matrixP∈R M×M , which is invariant during the whole
+training process 1. In this matrix, the(i, j)-th element,p ij,
+denotes the probability of successful transmission from the
+i-th device to thej-th device 2. Since a device does not need
+to communicate with itself, we havep ii = 0,∀i∈[M] 3.
+Device 1
+Device 2
+Device 3
+Device 5
+Device 6
+Device 7
+Device 4
+Fig. 1. An example of the links with successful transmission.
+When thei-th device broadcasts its model, i.e.,x i ∈R D,
+to the rest of network, this model is received by other devices
+with some random distortion. The reception ofx i at thej-
+th device, denoted byr i→j, is expressed asr i→j =n i→jxi,
+wheren i→j = 1if the model of thei-th device is success-
+fully received by thej-th device, andn i→j = 0otherwise.
+Without loss of generality, we assume the reciprocity of the
+transmission link, that isn i→j =n j→i,∀i, j. An example of
+1Note that our analytical framework can be directly applied to the situation
+where the transmission probability is dynamic, i.e.,Pchanges over training
+rounds. In this paper, we focus on the static case to simplify our analysis.
+2This link reliability model can be applied to decentralized network
+with any topology. For a specific topology where certain devices cannot
+communicate, we just need to set the corresponding reliabilityp ij = 0. This
+probability model allows us to capture the stochastic and unreliable nature of
+D2D communication while keeping the optimization framework general and
+independent of a specific channel model [26].
+3We can also assumep ii = 1and rewrite (3) asx
+(t+ 1
+2 )
+i =PM
+j=1 wijˆr(t)
+j→i correspondingly. This does not hurt our theoretical analysis.
+3
+the links that achieve successful communication in one round
+is shown in Fig. 1, where the blue line represents the links
+with successful transmission.
+We are now ready to introduce the training process of the
+DFL system. We adopt the stochastic gradient descent (SGD)
+technique [27] for local model training. The models of each
+device are updated in an iterative manner at each training
+round. In thet-th training round, the training process consists
+of the following steps.
+•Local computation: Each device, say devicei, computes
+its local stochastic gradient∇F(x (t)
+i , ξ(t)
+i )by randomly
+selecting dataξ (t)
+i from the local datasetD i, wherex (t)
+i
+represents the model of deviceiat thet-th training round.
+•Model exchange: Each device communicates with others
+to exchange the model parameters. Specifically, each
+device broadcasts the model to the rest of the network.
+If transmission fails in certain communication links, the
+receiving device cannot obtain the correct model. To
+mitigate this issue, the receiving device will substitute
+this lost value with its own model. Therefore, the re-
+ceived model of deviceifrom devicejis expressed as
+ˆr(t)
+j→i =r (t)
+i→j + (1−n (t)
+i→j)x(t)
+i . After that, each device
+calculates the weighted average of models as
+x
+(t+ 1
+2 )
+i =w iix(t)
+i +
+MX
+j=1,j̸=i
+wijˆr(t)
+j→i
+=x (t)
+i +
+MX
+j=1,j̸=i
+wijn(t)
+j→i(x(t)
+j −x (t)
+i ),(3)
+wherew ij represents the aggregation weight of the model
+from devicejwhen deviceiperforms model aggregation,
+andx
+(t+ 1
+2 )
+i denotes the aggregated model at deviceiat
+thet-th training round.
+•Local update: Using the aggregated model,x
+(t+ 1
+2 )
+i , each
+device updates its local model as
+x(t+1)
+i =x
+(t+ 1
+2 )
+i −λ∇F(x (t)
+i , ξ(t)
+i ),∀i∈[M],(4)
+whereλ∈Ris the learning rate.
+We view the above DFL training process from a global
+perspective. Define the concatenation of devices’ models and
+stochastic gradients at roundtasX (t) ≜
+h
+x(t)
+1 , . . . ,x(t)
+M
+i
+and∂F(X (t),ξ (t))≜
+h
+∇F(x (t)
+1 , ξ(t)
+1 ), . . . ,∇F(x (t)
+M , ξ(t)
+M )
+i
+,
+respectively. Then, iterative update formula (4) can be rewrit-
+ten in matrix form as
+X(t+1) =X (t)cW(t) −λ∂F(X (t),ξ (t)),(5)
+where cW(t) ∈R M×M is the mixing matrix in thet-th round
+and is given by cW(t) =I+W⊙S (t) −Diag(WS (t)),
+andS (t) ∈R M×M is the matrix representing the success of
+transmission at roundt. If deviceisuccessfully transmits its
+model to devicej, thens (t)
+ij = 1; otherwise,s (t)
+ij = 0. In
+particular, we haves (t)
+ii = 0,∀i, ands (t)
+ij =s (t)
+ji ,∀i, j.
+The randomness in the considered DFL system arises from
+two aspects: one is the randomness of the communication link,
+and the other is the randomness of the training samples. At
+thet-th iteration, given the current model parametersX (t) and
+the training samplesξ (t), the expectation of (5) is
+E(·|X(t),ξ(t)){X(t+1)}=X (t)W−λ∂F(X (t),ξ (t)),(6)
+where Wis the expectation of cW(t), i.e., W=E{ cW(t)},
+with its(i, j)-th entry given by
+wij =
+(
+wijpij, i̸=j
+1− PM
+l=1,l̸=i wi,lpi,l. i=j (7)
+III. CONVERGENCE ANALYSIS
+Our convergence analysis is based on the following assump-
+tions.
+Assumption 1.(Symmetric communication) We assume that
+the communication reliability from deviceito devicejis equal
+to that from devicejto devicei. That is, the link reliability
+matrix,P, is a symmetric matrix, i.e.,P=P T.
+Assumption 2.(Independent connections) The transmission
+reliability of different communication links (p ij andp ji are
+considered to be the reliability of the same communication
+link) are independent.
+Assumption 3.(Aggregation weights) AssumeWis a
+symmetric doubly stochastic matrix, i.e.,W T =W,
+W1=1. Define W2 =E{( cW(t))2}andρ( W2)≜
+max{λ2(W2),−λ M(W2)}. We assumeρ( W2)0, which means that
+f(G(W2))monotonically increases with respect toG( W2).
+Furthermore, since0≤ρ( W2) i,
+the projection result is obtained from the optimal conditions
+of the following problem.
+min
+q
+∥q−w i∥2 (23a)
+s.t.1 Tq≤l i,q⪰0.(23b)
+Problem (23) is a convex problem. By introducing Lagrange
+multipliersλ∈R mi for inequality constrainq⪰0andνfor
+equality constraint1 Tq−l i = 0, the Karush–Kuhn–Tucker
+(KKT) conditions for the optimal primal and dual variables
+q⋆,λ ⋆, ν⋆ are
+q⋆ ⪰0,1 Tq⋆ −l i ≤0,(24a)
+λ⋆ ⪰0, ν ⋆ ≥0,(24b)
+λ⋆
+i q⋆
+i = 0, ν ⋆(1Tq⋆ −1) = 0, i= 1,· · ·, m i,(24c)
+2(q⋆
+j −(w i)j)−λ ⋆
+j +ν ⋆ = 0, j= 1,· · ·, m i.(24d)
+By eliminating dual variablesλ ⋆, we obtain the equivalent
+optimality condition
+q⋆ ⪰0,1 Tq⋆ −l i ≤0,(25a)
+ν⋆ ≥0, ν ⋆(1Tq⋆ −l i) = 0,(25b)
+(2(q⋆
+j −(w i)j) +ν ⋆)q⋆
+j = 0, j= 1,· · ·, m i,(25c)
+2(q⋆
+j −(w i)j) +ν ⋆ ≥0, j= 1,· · ·, m i.(25d)
+From (25d), ifν ⋆ 0. According
+to (25c),q ⋆
+j = (w i)j −ν ⋆/2. Otherwise, ifν ⋆ ≥2(w i)j,
+ν⋆ ≥2(w i)j −2q ⋆
+j from (25d). Furthermore, it is necessary
+to haveq ⋆
+j = 0sinceq ⋆ ⪰0and the constraint (25c) holds.
+Therefore, we conclude
+q⋆
+j = max{0,(w i)j −ν ⋆/2}, j= 1,· · ·, m i.(26)
+Sinceq ⋆ must satisfy1 Tq⋆ −l i ≤0, we havePmi
+j=1 max{0,(w i)j −ν ⋆/2} ≤l i. Considering complemen-
+tary slackness conditionν ⋆(1Tq⋆ −l i) = 0, we can obtain
+the solution ofν ⋆ either atν ⋆ = 0or atν ⋆ satisfyingPmi
+j=1 max{0,(w i)j −ν ⋆/2}=l i. Substitutingν ⋆ into (26),
+we obtain the projected vectorq ⋆.
+Remark 5.Our subgradient-based optimization framework
+is inspired by the distributed consensus optimization method
+in [37]. The proposed algorithm can be run in a distributed
+manner. In step 3, the unit eigenvector can be computed
+based on Algorithm 1, which is shown to be distributed in
+Remark 3. In step 4, since each device, say devicei, is
+aware of its corresponding eigenvector componentv i, the
+subgradient of thei-th device’s aggregation weights, i.e.,
+wij,∀j,can be computed by(19)and(21)with only local
+communications. In step 5, aggregation weightsw ij,∀jand
+corresponding subgradient componentsg(w ij),∀jare held in
+each device, so each device is able to calculate the updated
+aggregation weights. Finally, in step 6, the projection method
+is sequentially carried out at each device based on(22)and
+(26), and hence this step can be performed distributedly.
+Remark 6.The proposed algorithm requires prior knowledge
+of link reliabilityp ij. In practice, this information can be
+estimated locally by each node based on its transmission
+history, for example, by computing the ratio of success-
+7
+fully acknowledged packets using acknowledgment (ACK) and
+negative acknowledgment (NACK) feedback messages. This
+provides a simple and fully distributed way to approximate
+pij without centralized assistance.
+F . Convergence and Complexity Analysis
+We first analyze the computational complexity of the algo-
+rithm by counting the number of multiplications and additions
+involved in Algorithm 2. For each device, the complexity of
+Step 3 isK maxM, as it involves iterative updates overK max
+rounds, each requiring operations withMelements. The com-
+plexity of Step 4 is3Mas it includes computations involving
+gradient updates forMelements with each accounting for 2
+multiplications and 1 addition. Step 5 has a complexity of
+2M, corresponding to the updates of the aggregation weights,
+and Step 6 has a complexity ofM, which accounts for the
+projection step. Since Algorithm 2 requiresJ max iterations, the
+overall complexity for each device isO(J max(Kmax + 6)M),
+which simplifies toO(J maxKmaxM). This demonstrates that
+the proposed algorithm has linear complexity with respect
+to the number of iterations. This property makes Algorithm
+2 well-suited for deployment in distributed communication
+networks, where computational efficiency is critical.
+According to [33], the distributed orthogonal iteration can
+compute the eigenvector in a decentralized manner with
+desired accuracy through local updates. Nevertheless, since
+Algorithm 1 relies on iterative numerical computation, ap-
+proximation errors in the eigenvector are unavoidable, which
+lead to inexact subgradient evaluations in Algorithm 2. To
+verify that the proposed method remains stable under such
+approximation, we establish the following convergence result
+based on the framework of approximate subgradient methods
+[38], which is proved in Appendix C.
+Proposition 4.Letv r(n)be the exact eigenvector that lies
+in the eigenspace associated withρ( W)and minimizes the
+distance tov(n). Assume that in iterationn, the eigenvector
+computed in Algorithm 1 satisfies∥v(n)−v r(n)∥2
+2 ≤ε n,
+and that the stepsize is set toγ n = 1/n. Then the generated
+sequence{W(n)}obeys
+lim inf
+n
+f(W(n))≤f ∗ +δ, δ= lim sup
+n
+ϵn,
+wheref ∗ is the optimal value offandϵ n =O(ε n).
+In practice, the eigenvector accuracy,ε n, decreases with
+the number of inner iterationsK max in Algorithm 1 [33].
+Therefore,K max can be increased until the resultingε n keeps
+ϵn =O(ε n)below a desired tolerance whileJ max specifies
+the total number of outer subgradient updates required to reach
+convergence.
+V. NUMERICALRESULTS
+In this section we investigate the performance of the pro-
+posed distributed optimization algorithm over decentralized
+communication networks.
+A. Experiment Settings
+We conduct the image classification task on the MNIST
+dataset [39]. From the original dataset, we utilize 20,000
+samples for training and 10,000 samples for validation. We
+implement the heterogeneous data splitting scheme described
+in [40]. Since the MNIST dataset comprises 10 classes, we
+divide the devices into 10 equally sized groups, with each
+group assigned dataset from a specific class. For the network
+configuration, we train a convolutional neural network (CNN)
+consisting of two5×5convolutional layers, with 10 and
+20 links, respectively, each followed by2×2max pooling
+layers. This is followed by a batch normalization layer, a fully
+connected layer with 50 units and ReLU activation, and a
+final softmax output layer. The network comprises a total of
+21,880 parameters. The cross-entropy loss function is utilized
+for training. We train this model with an NVIDIA RTX 3060Ti
+GPU.
+For the communication setup, we generate a geometric ran-
+dom graph to represent the network. Specifically, we randomly
+placeM= 40devices within a1×1square unit area.
+The probability of successful communication decays with the
+distance between the corresponding devices, given byp ij =
+pji = exp(−rd v
+ij), whered ij denotes the distance between
+devicesiandj, andrandvare adjustable parameters 5. Based
+on this, we generate every realizationn (t)
+i→j by sampling from
+a Bernoulli distribution with the success probabilityp ij. As for
+the optimization parameters, we setK max = 104,J max = 104,
+and step sizeγ= 0.01. The results are averaged over 40 Monte
+Carlo trials.
+B. Validation of Surrogate Function
+To start with, we conduct experiments to analyze the impact
+of surrogate objective functionρ( W)on system performance.
+To obtain variousρ( W), we use the convex optimization tool
+CVXPY [41] to randomly generate matrices Wwith different
+ρ(W).
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Average test accuracy96981001020.810.820.830.840.85
+Fig. 2. Average test accuracy versus training round.
+5 When a device is far from all others, i.e.,d ij is large for allj, the
+corresponding link reliabilitiesp ij approach zero, which represents a device
+disconnection scenario.
+8
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Minimum test accuracy
+Fig. 3. Minimum test accuracy versus training round.
+In Fig. 2 and 3, we show the average test accuracy
+(the average accuracy of all devices) and the minimum test
+accuracy (the minimum accuracy among all devices) for
+differentρ( W)over 150 training rounds. From the figure,
+the learning accuracy gradually decreases with the increase in
+ρ(W), exhibiting a monotonic relationship. This validates the
+precision of the surrogate objective function derived in Section
+IV-B. The case ofρ( W) = 0, with its minimum accuracy and
+average accuracy remaining consistent, performs best in both
+figures. This is becauseρ( W) = 0corresponds to the scenario
+whereW= 1
+M 11T andP=11 T, which is a fully connected
+network with reliable communication links. In this scenario,
+each device can obtain the model aggregated from all devices
+(i.e., global model). This setting is equivalent to traditional
+federated learning with error-free transmission [42].
+Furthermore, the performance gap in the average accuracy
+with varyingρ( W)is relatively small, whereas this gap be-
+comes significant in the minimum accuracy. This demonstrates
+that for DFL deployment with largerρ( W), the discrepancies
+between the models of different devices are huge. Therefore,
+it implies thatρ( W)has a substantial impact on the learning
+and consensus performance and emphasizes the importance of
+the optimization.
+C. Convergence of Proposed Algorithm
+To validate the convergence performance of the proposed
+distributed algorithm, we show objective valueρ( W)in each
+subgradient iteration of Algorithm 2 and compare with the
+value obtained by centralized optimization algorithm. In the
+centralized algorithm, which assumes a central entity to collect
+information from all edge devices and solve problem (10) to
+optimize aggregation weight matrixW. Since (10) is a convex
+problem, the obtained result from centralized algorithm is the
+global optimal solution.
+We fix the device positions and vary the values of parame-
+tersrandvto acquire results under different link reliability
+matrixP. Fig. 4 and Fig. 5 show the cumulative probability
+function of link reliability matrixPand the objective value of
+each iteration of proposed algorithm, respectively. In the pro-
+posed algorithm, we take aggregation weightsW= 1
+M 11T
+0 0.2 0.4 0.6 0.8 1Communication link reliability
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1Cumulative probability
+Fig. 4. Cumulative probability versus distance.
+0 500 1000 15000.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+Fig. 5. Convergence performance of the proposed algorithm.
+as the initial solution. When all the communication links are
+reliable, i.e.,P=11 T,W= 1
+M 11T is the optimal solution
+and we haveρ( W) = 0. From Fig. 5, the proposed algorithm
+consistently converges to the global optimal solution given by
+the centralized algorithm under different settings. Moreover,
+as the parameterrincreases, the convergence value of the
+ρ(W)increases and the convergence time becomes longer.
+As shown in Fig. 4, when the value ofris larger, there are
+more communication links with low reliability and matrixP
+deviates further from the ideal caseP=11 T. In this case,
+initial solutionW= 1
+M 11T is far from optimal and leads to
+a longer convergence time.
+D. Performance under Different Settings
+In this subsection, we investigate the proposed algorithm
+under different system configurations.
+Fig. 6 and Fig. 7 plot the average test accuracy and the
+minimum test accuracy, respectively. In these figures, we set
+r= 2and change the value ofv. From these figures, the test
+accuracy decreases with the increase of parametervwhile and
+the accuracy gap is larger with respect to minimum accuracy.
+The reason is that optimized second largest (in magnitude)
+eigenvalueρ( W)decreases (from0.54whenv= 2to0.15
+whenv= 10) as the value ofvincreases.
+9
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Average test accuracy9698100102
+0.820.830.840.85
+Fig. 6. Average test accuracy versus training round.
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Minimum test accuracy
+Fig. 7. Minimum test accuracy versus training round.
+Fig. 8 and 9 compare the performance of the decentralized
+federated learning (DFL) system under static and dynamic link
+reliability with varyingrandv. In the static scenario, user
+positions and link qualities remain constant throughout the
+training process, requiring a single optimization of aggregation
+weights. In contrast, the dynamic scenario involves random
+user position updates in each round, leading to varying link
+qualities and dynamic re-optimization of aggregation weights.
+The left figure shows minimum test accuracy, while the right
+panel presents average test accuracy. Dynamic link conditions
+consistently improve both metrics compared to static links.
+This is because randomizing user positions prevents any device
+from being persistently subjected to poor channel conditions,
+balancing link reliability across devices over time. As a result,
+the dynamic scenario achieves better model aggregation and
+learning performance, demonstrating the method’s robustness
+to real-world network dynamics.
+E. Performance Comparison in Complex System
+In this subsection, we compare the proposed scheme with
+existing state-of-the-art schemes under a large-scale complex
+system. Specifically, we set the link reliability factor,r=
+4, v= 2, and the device numberM= 200. We conduct
+DFL training on the challenging FashionMNIST dataset [43].
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Minimum test accuracy
+Fig. 8. Average test accuracy versus training round.
+0 50 100 150Training round
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9Average test accuracy
+Fig. 9. Minimum test accuracy versus training round.
+Other settings are the same as that given in Section V-A. The
+followings are the benchmarks used in comparison.
+•Weight design via centralized optimization (WD via
+CO) [21]: Assume there is a central entity in the system
+that can collect the link reliability information, i.e., matrix
+P, from all devices. This central entity optimizes the
+aggregation weights by solving (10) and distributes the
+results to the corresponding edge devices.
+•Equal weight design without reliability consideration
+(EW w/o RC) [44]: We use the average aggregation
+weights for each device, i.e.,W= 1
+M 11T. Since this
+setting consider no link reliabilityP, the resulting W
+does not minimizeρ( W)in general.
+•Weight design with reliable communication (WD with
+RC): We set all the communication links are reliable, i.e.,
+P=11 T. In this case, the optimal aggregation weights
+Wis 1
+M 11T since thisWmakesρ( W) = 0.
+•Weight design via Metropolis–Hastings algorithm
+(WD via MH) [45]: Following the idea of the
+Metropolis–Hastings (MH) algorithm [45], we construct a
+symmetric and stochastic aggregation matrix based on the
+link reliability,p ij. Specifically, the aggregation weights
+10
+are defined as
+wij =
+
+
+
+pij
+max{di, dj} , i̸=j,
+1− P
+k̸=i wik, i=j,
+(27)
+where the weighted degree of deviceiis given by
+di = P
+k pik. This design follows the principle of the
+MH algorithm, ensuring both symmetry (w ij =w ji) and
+stochasticity (P
+j wij = 1), while continuously reflecting
+the reliability of communication links in the aggregation
+process.
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8Average test averuracyWD with RCProposedWD via COWD via MHEW w/o RC
+Fig. 10. Average test accuracy of different schemes.
+0 50 100 150Training round
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8Minimum test accuracy
+WD with RCProposedWD via COWD via MHEW w/o RC
+Fig. 11. Minimum test accuracy of different schemes.
+The average test accuracy is plotted in Fig. 10 and minimum
+test accuracy is in Fig. 11. From the figures, the WD with RC
+scheme exhibits the best learning performance because we set
+all communication links reliable in the WD with RC and in
+this case the WD with RC scheme chooses optimal aggregation
+weightsW= 1
+M 11T such thatρ( W) = 0. Moreover, the
+performance of the proposed algorithm is almost the same
+as that of WD via CO defined before in both figures and
+similar to optimal performance given by the WD with RC.
+This demonstrates that the proposed distributed subgradient
+optimization algorithm can achieve the same performance
+as the centralized method that is under the assistance of
+a central entity. This observation can be explained by our
+convergence analysis. Since the optimization problem (10) is
+convex, the centralized method attains the globally optimal
+aggregation weights. Meanwhile, the projected subgradient
+algorithm is proven to converge to a neighborhood of the
+optimum (Section IV-F). Therefore, the proposed distributed
+realization naturally achieves performance comparable to the
+centralized one. Furthermore, the performance of the WD via
+WH scheme lags far behind the proposed algorithm because
+WD via WH heuristically designs aggregation weights based
+on the topology formed by the link reliabilityp ij, which does
+not achieve minimalρ( W). Finally, the EW w/o RC scheme
+shows the worst learning performance because this design
+completely ignores the link reliability.
+VI. CONCLUSIONS
+In this paper, we investigated distributed aggregation weight
+optimization for DFL. We derived an ergodic convergence
+bound by capturing the impact of aggregation weights on the
+learning performance over communication networks. Based on
+this, we formulated a weight optimization problem to minimize
+the convergence bound. We proposed a distributed subgradient
+algorithm to solve this problem. In this way, we established
+a completely distributed DFL system, where optimization,
+communication, and learning processes are all distributed.
+Based on our simulation results, the proposed algorithm
+reached the performance of the centralized method. Future
+work may consider practical factors to balance performance
+and efficiency.
+APPENDIXA
+PROOF OFPROPOSITION1
+We assumeλ≤ 1
+ω . Begin withf
+
+X(t+1)1
+M
+
+Ef
+X(t+1)1
+M
+
+=Ef
+ 
+X(t)cW(t)1
+M −λ ∂F(X (t),ξ (t))1
+M
+!
+(a)
+≤Ef
+X(t)1
+M
+
+−λE
+
+∇f
+X(t)1
+M
+
+, ∂F(X (t), ξ(t)1
+M
+
++ ωλ2
+2 E
+
+∂F(X (t),ξ (t))1
+M
+
+2
+(b)
+=Ef
+X(t)1
+M
+
+− λ
+2 E
+∇f
+X(t)1
+M
+
+2
++ λ
+2 E
+∇f
+X(t)1
+M
+
+− ∂F(X (t),ξ (t))1
+M
+
+2
+− λ
+2 E
+
+∂F(X (t),ξ (t))1
+M
+
+2
++ ωλ2
+2 E
+
+∂F(X (t),ξ (t))1
+M
+
+2
+(c)
+≤Ef
+X(t)1
+M
+
+− λ
+2 E
+∇f
+X(t)1
+M
+
+2
++ λ
+2 E
+∇f
+X(t)1
+M
+
+− ∂F(X (t),ξ (t))1
+M
+
+2
+,
+11
+where(a)is due toω-smoothness and W1=1;(b)is due to
+2⟨a, b⟩=∥a∥ 2+∥b∥2−∥a−b∥ 2;(c)is due to the Assumption
+λ≤ 1
+ω . Then, we turn to bound the last term in the above
+inequality as follows.
+E
+∇f
+X(t)1
+M
+
+− ∂F(X (t),ξ (t))1
+M
+
+2
+=E
+∇f
+X(t)1
+M
+
+− ∂F(X (t),ξ (t))1
+M
+− ∂f(X (t))1
+M + ∂f(X (t))1
+M
+
+2
+=E
+∇f
+X(t)1
+M
+
+− ∂f(X (t))1
+M
+
+2
++E
+
+∂f(X (t))1
+M − ∂F(X (t),ξ (t))1
+M
+
+2
++ 2E
+
+∇f
+X(t)1
+M
+
+− ∂f(X (t))1
+M ,
+∂f(X (t))1
+M − ∂F(X (t),ξ (t))1
+M
+
+=E
+∇f
+X(t)1
+M
+
+− ∂f(X (t))1
+M
+
+2
++E
+
+∂f(X (t))1
+M − ∂F(X (t),ξ (t))1
+M
+
+2
+≤E
+∇f
+X(t)1
+M
+
+− ∂f(X (t))1
+M
+
+2
++ α2
+M ,
+where the last inequality is obtained from Assumption 5. We
+then bound the second last term on the right hand side (RHS)
+of the above inequality as follows.
+E
+∇f
+X(t)1
+M
+
+− ∂f(X (t))1
+M
+
+2
+=E
+
+1
+M
+MX
+i=1
+
+∇fi
+X(t)1
+M
+
+− ∇fi(X(t)ei)
+
+2
+≤ 1
+M
+MX
+i=1
+E
+∇fi
+X(t)1
+M
+
+− ∇fi(X(t)ei)
+
+2
+≤ ω2
+M
+MX
+i=1
+E
+
+X(t)1
+M −X (t)ei
+
+2
+,
+wheree i is the vector with appropriate dimensions and
+only thei-th element ofe i is1while all others are0,
+and the last inequality is due to theω-smoothness. We call
+1
+M
+PM
+i=1 E
+ X(t)1
+M −X (t)ei
+
+2
+as the consensus error at the
+t-th round.
+Till now, it can be concluded that
+Ef
+X(t+1)1
+M
+
+≤Ef
+X(t)1
+M
+
+− λ
+2 E
+∇f
+X(t)1
+M
+
+2
++ λω2
+2M
+MX
+i=1
+E
+
+X(t)1
+M −X (t)ei
+
+2
++ λα2
+2M .(28)
+We proceed with boundingΞ (t)
+i =E
+ X(t)1
+M −X (t)ei
+
+2
+.
+Ξ(t)
+i =E
+
+1
+M
+
+X(t−1)cW(t−1)1−λ
+
+∂F(X (t−1),ξ (t−1))
+
+1
+
+−
+
+X(t−1)cW(t−1)ei −λ
+
+∂F(X (t−1),ξ (t−1))
+
+ei
+
+2
+=E
+
+1
+M
+ 
+X(0)1−
+t−1X
+i=0
+λ
+
+∂F(X (i),ξ (i))
+
+1
+!
+−
+
+X(0)
+(t−1)Y
+m=0
+cW(m)ei −
+t−1X
+j=0
+λ(∂F(X (j),ξ (j)))
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+=E
+
+X(0)
+
+ 1
+M −
+(t−1)Y
+m=0
+cW(m)ei
+
+ −
+t−1X
+j=0
+λ
+
+∂F(X (j),ξ (j))
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+=E
+
+t−1X
+j=0
+λ
+
+∂F(X (j),ξ (j))
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+=λ2 E
+
+t−1X
+j=0
+
+∂F(X (j),ξ (j))−∂f(X (j)) +∂f(X (j))
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+≤2λ 2E
+
+t−1X
+j=0
+∂f(X (j))
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
++
+2λ2E
+
+t−1X
+j=0
+
+∂F(X (j),ξ (j))−∂f(X (j))
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+,
+(29)
+where we useX (0) = 0. We now bound the first term on the
+RHS of inequality (29).
+E
+
+t−1X
+j=0
+
+∂F(X (j),ξ (j))−∂f(X (j))
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+≤
+t−1X
+j=0
+E
+
+
+∂F(X (j),ξ (j))−∂f(X (j))
+
+2
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+≤
+t−1X
+j=0
+E
+
+
+∂F(X (j),ξ (j))−∂f(X (j))
+
+2
+F
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+12
+(a)
+≤M α2
+t−1X
+j=0
+E
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+(b)
+=M α2
+t−1X
+j=0
+E
+
+(t−1)Y
+m=j+1
+11T
+M −cW(m)
+
+ei
+
+2
+,
+where(a)is from Assumption 5, and(b)is from the fact that
+cW(m) is a doubly stochastic matrix. We then bound
+E
+
+(t−1)Y
+m=j+1
+11T
+M −cW(m)
+
+ei
+
+2
+=E
+
+
+eT
+i
+
+
+(j+1)Y
+m=t−1
+11T
+M −cW(m)
+T
+
+
+
+
+(t−1)Y
+m=j+1
+11T
+M −cW(m)
+
+ei
+
+
+
+
+
+=E
+
+
+eT
+i
+
+
+(j+2)Y
+m=t−1
+11T
+M −cW(m)
+T
+
+
+E
+"11T
+M −cW(j+1)
+T11T
+M −cW(j+1)
+#
+
+
+(t−1)Y
+m=j+2
+11T
+M −cW(m)
+
+ ei
+
+
+
+=E
+
+
+eT
+i
+
+
+(j+2)Y
+m=t−1
+11T
+M −cW(m)
+T
+
+
+
+W2 − 11T
+M
+
+
+(t−1)Y
+m=j+2
+11T
+M −cW(m)
+
+ ei
+
+
+
+(a)
+≤λ 1
+
+W2 − 11T
+M
+
+E
+
+
+eT
+i
+
+
+(j+2)Y
+m=t−1
+11T
+M −cW(m)
+T
+
+
+
+
+(t−1)Y
+m=j+2
+11T
+M −cW(m)
+
+ ei
+
+
+
+≤
+
+λ1
+
+W2 − 11T
+M
+t−j−1
+(b)
+=
+
+λ1
+
+W2 −
+
+W2
+∞t−j−1
+≤
+
+ρ
+
+W2
+t−j−1
+,(30)
+where(a)is from the Rayleigh quotient inequality, and(b)
+is from the fact that W2 is a doubly stochastic matrix. By
+applying the analysis in [46], the second term on the RHS of
+(29) can be eventually bounded as
+E
+
+t−1X
+j=0
+∂f(X (j))
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+≤3
+t−1X
+j=0
+MX
+h=1
+Eω 2Ξ(j)
+h
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
++ 6
+t−1X
+j=0
+ MX
+h=1
+Eω 2Ξ(j)
+h +E
+∇f
+X(j)1
+M
+
+1⊤
+
+2!
+×
+q
+ρ(W2)
+k−j−1
+1−
+q
+ρ(W2)
++ 9nβ2
+(1−
+q
+ρ(W2))2
++ 3
+t−1X
+j=0
+E
+∇f
+X(j)1
+M
+
+1⊤
+
+2
+ 1
+M −W t−j−1ei
+
+2
+.
+Now we are able to boundΞ (t)
+i .
+Ξ(t)
+i ≤12λ 2
+t−1X
+j=0
+ MX
+h=1
+ω2 EΞ (j)
+h +E
+∇f
+X(j)1
+M
+
+1⊤
+
+2!
+×
+q
+ρ(W2)
+k−j−1
+1−
+q
+ρ(W2)
++ 2λ2M α2
+1−ρ( W2)
++ 18λ2M β2
+(1−
+q
+ρ(W2))2
++ 6λ2
+t−1X
+j=0
+E
+∇f
+X(j)1
+M
+
+1⊤
+
+2
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
++ 6λ2ω2
+t−1X
+j=0
+MX
+h=1
+EΞ (j)
+h
+
+
+ 1
+M −
+(t−1)Y
+m=j+1
+cW(m)ei
+
+
+
+2
+≤ 2λ2M α2
+1−ρ( W2)
++ 18λ2M β2
+(1−
+q
+ρ(W2))2
++ 6λ2
+t−1X
+j=0
+E
+∇f
+X(j)1
+M
+
+1⊤
+
+2
+Ω
+
+ρ(W2)
+
++ 6λ2ω2
+t−1X
+j=0
+MX
+h=1
+EΞ (j)
+h Ω
+
+ρ(W2)
+
+,
+where
+Ω
+
+ρ(W2)
+
+=
+
+ρ(W2)
+k−j−1
++
+2
+q
+ρ(W2)
+k−j−1
+1−
+q
+ρ(W2)
+.
+We next bound the consensus error 1
+M
+PM
+i=1 Ξ(t)
+i as
+1
+M
+MX
+i=1
+E
+
+X(t)1
+M −X (t)ei
+
+2
+≤ 2λ2M α2
+1−ρ( W2)
++ 18λ2M β2
+(1−
+q
+ρ(W2))2
++ 6λ2
+t−1X
+j=0
+E
+∇f
+X(j)1
+M
+
+1⊤
+
+2
+Ω
+
+ρ(W2)
+
++ 6λ2ω2
+t−1X
+j=0
+MX
+i=1
+E
+
+X(j)1
+M −X (j)ei
+
+2
+Ω
+
+ρ(W2)
+
+.
+The consensus error appears on the both sides of the above
+inequality. By summing the above inequality fromt= 0to
+T−1, rearranging the summation, and taking relaxation, the
+13
+overall bound for the consensus error is
+1
+M
+T−1X
+t=0
+MX
+i=1
+E
+
+X(t)1
+M −X (t)ei
+
+2
+≤ 2λ2
+(1−ρ( W2))
+
+1− 18M λ2ω2
+(1−
+√
+ρ(W2))2
+
+×
+ 
+M α2T+ 9M β 2T+ 9
+T−1X
+t=0
+E
+∇f
+X(t)1
+M
+
+1⊤
+
+2!
+.
+(31)
+Summing the inequality (28) fromt= 0tot=T−1while
+applying (31), we obtain
+1
+2
+T−1X
+t=0
+E
+∇f
+X(t)1
+M
+
+2
+≤ f0 −f ∗
+λ + λωα2T
+2M
++
+ 
+α2T+ 9β 2T+ 9
+T−1X
+t=0
+E
+∇f
+X(t)1
+M
+
+2!
+G(W2),
+whereG( W2) = M λ2ω2
+(1−
+√
+ρ(W2))2−18M λ2ω2
+. Rearranging the
+above inequality, we obtain the final convergence bound given
+in Theorem 1.
+APPENDIXB
+PROOF OFPROPOSITION2
+For the second order statistic W2, we have
+W2 = (W)2 +fW,(32)
+where fW= W2 −( W)2 has a variance-like form. Suppose
+ρ(W2) =λ 2(W2), since W2 is a real symmetric matrix,
+from the spectral stability corollary of Weyl’s inequality [47],
+we have
+λ2(W2) =λ 2
+
+(W)2 +fW
+
+≤λ 2((W)2) +λ 1(fW).(33)
+Here, we seeλ 2((W)2) +λ 1(fW)is an upper bound of
+ρ(W2). Soλ 2((W)2) +λ 1(fW)can be an objective function
+of the minimization problem ofρ( W2).
+Note that fW= W2 −( W)2 =E{( cW(t))T(cW(t))} −
+E{(cW(t))}2 =E{( cW(t))2} −E{( cW(t))}2, which is as-
+sociated with the first-order and second-order statistics of
+variable cW(t). The expression of fWis quite similar to the
+autocovariance of a random variable. For the(i, j)-th element
+of fW, we have
+ewij =
+MX
+k=1
+h
+E
+n
+bw(t)
+ki bw(t)
+kj
+o
+−E
+n
+bw(t)
+ki
+o
+E
+n
+bw(t)
+kj
+oi
+.(34)
+We see that the(i, j)-th element of fWis the sum of the
+covariance of the corresponding elements between thei-th and
+j-th columns of matrix cW(t). Since the reliability of different
+links is independent (from Assumption 2), we have
+ewij = 2w2
+ij
+
+p2
+ij −p ij
+
+,∀i̸=j,(35)
+ewii = 2
+MX
+k=1
+w2
+ki
+
+pki −p 2
+ki
+
+,∀i.(36)
+Since|ewii| ≥ PM
+j=1,j̸=i |ewij|, fWis a diagonally dominant
+matrix. The eigenvalues offWcan be estimated as its diagonal
+elements and the largest eigenvalueλ 1(fW)≈max{ewii| ∀i}.
+Since0≤p ij ≤1,∀i, j, we have0≤ew ii ≤ 1
+2
+PM
+i=1 w2
+ki,∀i.
+In the large-scale systems where the number of devices
+approaches infinity, there cannot not be a model of specific
+device which dominates the each aggregation process. If each
+model shares the equal weight in aggregation, i.e.,w ki =
+1
+M ,∀k, i, we havelim M→∞
+PM
+j=1 w2
+ki = 1
+M = 0,∀iand
+henceewii = 0,∀i. Combing the above analysis, we can prove
+thatλ 1(fW)≈0andλ 2(W2)≤λ 2((W)2).
+Similarly, we can also proveρ( W2)≤λ 2((W)2)for
+the caseρ( W2) =−λ M(W2). Therefore,λ 2((W)2)is an
+upper bound ofρ( W2). Furthermore, sinceλ 2((W)2) =
+(max{λ2(W),−λ M(W)})2, we can considerρ( W) =
+max{λ2(W),−λ M(W)}as a simplified upper bound and
+turn to use it as the surrogate objective function in the
+optimization.
+APPENDIXC
+PROOF OFPROPOSITION4
+We establish the convergence of Algorithm 2 following the
+framework of approximate subgradient methods [38]. Given
+the feasible setCdefined in (10b), Algorithm 2 performs the
+following update:
+W(n+1) = ΠC
+
+W(n)−γ n g(W(n))
+
+,
+g(W(n))∈∂ ϵn f(W(n)),
+(37)
+whereΠ C denotes the projection ontoC, and∂ ϵn f(W(n))is
+theϵ n-subdifferential defined by
+∂ϵn f(W(n))
+=
+n
+g:f(W)≥f(W(n)) +⟨g,W−W(n)⟩ −ϵ n,∀W∈ C
+o
+.
+Letη n = 1
+2 ∥g(W(n))∥2
+F γn andδ n =η n +ϵ n. From [38],
+ifP
+n γn =∞, then
+lim inf
+n
+f(W(n))≤f ∗ +δ, δ= lim sup
+n
+δn.(38)
+At iterationn, the eigenvectorv(n)computed by Algo-
+rithm 1 approximates the exact eigenvectorv r(n)associated
+withρ( W)and satisfies∥v(n)−v r(n)∥2
+2 ≤ε n. Letg r(W(n))
+denote the exact subgradient derived fromv r(n)andg(W(n))
+the one used in the algorithm. For any feasibleW∈ C,
+λ2(W)≥λ 2(W(n)) +⟨g r,W−W(n)⟩
+=λ 2(W(n)) +⟨g,W−W(n)⟩ − ⟨g−g r,W−W(n)⟩.
+Hence the inexactness term satisfies
+ϵn = sup
+W∈C
+⟨g−g r,W−W(n)⟩=c∥g−g r∥2
+F ,(39)
+wherec >0is a scaling constant.
+The(i, j)-th element ofg−g r is
+(g−g r)ij =p ij
+
+(vi −v j)2 −(v r,i −v r,j)2
+=p ij[(vi −v r,i −v j +v r,j)(vi −v j +v r,i −v r,j)].
+14
+Since|v i −v r,i| ≤ √εn for alliand the eigenvectors are
+normalized (∥v∥ 2 = 1), one has|v i −v j| ≤
+√
+2, which yields
+(g−g r)2
+ij ≤32p 2
+ij εn.(40)
+Summing over all existing links gives
+∥g−g r∥2
+F ≤32ε n
+X
+(i,j)
+p2
+ij.(41)
+Substituting (41) into (39) yields
+ϵn ≤32c ε n
+X
+(i,j)
+p2
+ij =O(ε n).(42)
+Now we choose a diminishing stepsizeγ n = 1/n. From (21)
+we see the subgradient norm∥g(W(n))∥ F remains bounded,
+and henceη n →0. Therefore, from (38) and (42),
+lim inf
+n
+f(W(n))≤f ∗ +δ, δ= lim sup
+n
+ϵn,
+which proves Proposition 4.
+REFERENCES
+[1] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image
+recognition,” inProc. IEEE Conf. Comput. Vis. Pattern Recognit., 2016,
+pp. 770–778.
+[2] T. Young, D. Hazarika, S. Poria, and E. Cambria, “Recent trends in
+deep learning based natural language processing,”IEEE Comput. Intell.
+Mag., vol. 13, no. 3, pp. 55–75, 2018.
+[3] J. Kone ˇcn`y, H. B. McMahan, D. Ramage, and P. Richt ´arik, “Federated
+optimization: Distributed machine learning for on-device intelligence,”
+arXiv preprint arXiv:1610.02527, 2016.
+[4] Y . Zhao, M. Li, L. Lai, N. Suda, D. Civin, and V . Chandra, “Federated
+learning with non-iid data,”arXiv preprint arXiv:1806.00582, 2018.
+[5] S. Zhou and G. Y . Li, “Fedgia: An efficient hybrid algorithm for
+federated learning,”IEEE Trans. Signal Process., vol. 71, pp. 1493–
+1508, 2023.
+[6] ——, “Federated learning via inexact admm,”IEEE Trans. Pattern Anal.
+Mach. Intell., vol. 45, no. 8, pp. 9699–9708, 2023.
+[7] S. Liu, C. Liu, D. Wen, and G. Yu, “Efficient collaborative learning over
+unreliable D2D network: Adaptive cluster head selection and resource
+allocation,”IEEE Trans. Commun., 2024.
+[8] S. Savazzi, M. Nicoli, M. Bennis, S. Kianoush, and L. Barbieri, “Oppor-
+tunities of federated learning in connected, cooperative, and automated
+industrial systems,”IEEE Commun. Mag., vol. 59, no. 2, pp. 16–21,
+2021.
+[9] J. N. Tsitsiklis, “Problems in Decentralized Decision Making and
+Computation,” Ph.D. dissertation, Massachusetts Institute of Technology,
+1984.
+[10] A. Agarwal, M. J. Wainwright, and J. C. Duchi, “Distributed dual
+averaging in networks,”Adv. Neural Inf. Process. Syst., vol. 23, 2010.
+[11] F. Iutzeler, P. Bianchi, P. Ciblat, and W. Hachem, “Explicit convergence
+rate of a distributed alternating direction method of multipliers,”IEEE
+Trans. Autom. Control, vol. 61, no. 4, pp. 892–904, 2015.
+[12] A. Nedic, A. Olshevsky, A. Ozdaglar, and J. N. Tsitsiklis, “On dis-
+tributed averaging algorithms and quantization effects,”IEEE Trans.
+Autom. Control, vol. 54, no. 11, pp. 2506–2517, 2009.
+[13] S. Sundhar Ram, A. Nedi ´c, and V . V . Veeravalli, “Distributed stochastic
+subgradient projection algorithms for convex optimization,”J. Optim.
+Theory Appl., vol. 147, pp. 516–545, 2010.
+[14] M. M. Amiri and D. G ¨und¨uz, “Machine learning at the wireless edge:
+Distributed stochastic gradient descent over-the-air,”IEEE Trans. Signal
+Process., vol. 68, pp. 2155–2169, 2020.
+[15] D. Basu, D. Data, C. Karakus, and S. Diggavi, “Qsparse-local-SGD: Dis-
+tributed SGD with quantization, sparsification and local computations,”
+Adv. Neural Inf. Process. Syst., vol. 32, 2019.
+[16] A. Koloskova, N. Loizou, S. Boreiri, M. Jaggi, and S. Stich, “A unified
+theory of decentralized sgd with changing topology and local updates,”
+inProc. Int. Conf. Mach. Learn.PMLR, 2020, pp. 5381–5393.
+[17] L. Yuan, Z. Wang, L. Sun, S. Y . Philip, and C. G. Brinton, “Decentralized
+federated learning: A survey and perspective,”IEEE Internet Things J.,
+2024.
+[18] P. Kairouz, H. B. McMahan, B. Avent, A. Bellet, M. Bennis, A. N.
+Bhagoji, K. Bonawitz, Z. Charles, G. Cormode, R. Cummingset al.,
+“Advances and open problems in federated learning,”Found. Trends
+Mach. Learn., vol. 14, no. 1–2, pp. 1–210, 2021.
+[19] H. Xing, O. Simeone, and S. Bi, “Decentralized federated learning via
+SGD over wireless D2D networks,” inProc. IEEE Int. Workshop Signal
+Process. Adv. Wireless Commun., 2020, pp. 1–5.
+[20] Z. Zhai, X. Yuan, and X. Wang, “Decentralized federated learning via
+mimo over-the-air computation: Consensus analysis and performance
+optimization,”IEEE Trans. Wireless Commun., pp. 1–1, 2024.
+[21] H. Ye, L. Liang, and G. Y . Li, “Decentralized federated learning with
+unreliable communications,”IEEE J. Sel. Top. Signal Process., vol. 16,
+no. 3, pp. 487–500, 2022.
+[22] R. Chen, L. Li, K. Xue, C. Zhang, M. Pan, and Y . Fang, “Energy efficient
+federated learning over heterogeneous mobile devices via joint design
+of weight quantization and wireless transmission,”IEEE Trans. Mobile
+Comput., vol. 22, no. 12, pp. 7451–7465, 2023.
+[23] L. Wang, Y . Xu, H. Xu, M. Chen, and L. Huang, “Accelerating
+decentralized federated learning in heterogeneous edge computing,”
+IEEE Trans. Mobile Comput., vol. 22, no. 9, pp. 5001–5016, 2023.
+[24] A. G. Roy, S. Siddiqui, S. P ¨olsterl, N. Navab, and C. Wachinger,
+“Braintorrent: A peer-to-peer environment for decentralized federated
+learning,”arXiv preprint arXiv:1905.06731, 2019.
+[25] E. T. M. Beltr ´an, M. Q. P ´erez, P. M. S. S ´anchez, S. L. Bernal,
+G. Bovet, M. G. P ´erez, G. M. P ´erez, and A. H. Celdr ´an, “Decentralized
+federated learning: Fundamentals, state of the art, frameworks, trends,
+and challenges,”IEEE Commun. Surv. Tutor., 2023.
+[26] Z. Jiang, D. Wen, S. Liu, G. Zhu, and G. Yu, “Partitioned edge learning
+over fast fading channels,”IEEE Trans. Veh. Technol., vol. 74, no. 6,
+pp. 8561–8576, 2025.
+[27] M. Zinkevich, M. Weimer, L. Li, and A. Smola, “Parallelized stochastic
+gradient descent,”Adv. Neural Inf. Process. Syst., vol. 23, 2010.
+[28] A. Koloskova, S. Stich, and M. Jaggi, “Decentralized stochastic opti-
+mization and gossip algorithms with compressed communication,” in
+Proc. Int. Conf. Mach. Learn., 2019, pp. 3478–3487.
+[29] J. Wang and G. Joshi, “Cooperative SGD: A unified framework for the
+design and analysis of communication-efficient SGD algorithms,”arXiv
+preprint arXiv:1808.07576, 2018.
+[30] X. Li, Y . Xu, J. H. Wang, X. Wang, and J. Lui, “Decentralized stochastic
+proximal gradient descent with variance reduction over time-varying
+networks,”arXiv preprint arXiv:2112.10389, 2021.
+[31] D. B. Westet al.,Introduction to graph theory. Prentice Hall Upper
+Saddle River, 2001, vol. 2.
+[32] S. P. Boyd and L. Vandenberghe,Convex optimization. Cambridge
+University Press, 2004.
+[33] D. Kempe and F. McSherry, “A decentralized algorithm for spectral
+analysis,” inProc. Annu. ACM Symp. Theory Comput., 2004, pp. 561–
+568.
+[34] Y . Xu, “On the convergence of higher-order orthogonal iteration,”Linear
+Multilinear Algebra, vol. 66, no. 11, pp. 2247–2265, 2018.
+[35] L. Xiao and S. Boyd, “Fast linear iterations for distributed averaging,”
+Syst. Control Lett., vol. 53, no. 1, pp. 65–78, 2004.
+[36] G. H. Golub and C. F. Van Loan,Matrix computations. JHU Press,
+2013.
+[37] S. Boyd, A. Ghosh, B. Prabhakar, and D. Shah, “Randomized gossip
+algorithms,”IEEE Trans. Inf. Theory, vol. 52, no. 6, pp. 2508–2530,
+2006.
+[38] K. C. Kiwiel, “Convergence of approximate and incremental subgradient
+methods for convex optimization,”SIAM J. Optim.
+[39] L. Deng, “The MNIST database of handwritten digit images for machine
+learning research [best of the web],”IEEE Signal Process. Mag., vol. 29,
+no. 6, pp. 141–142, 2012.
+[40] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. Arcas,
+“Communication-efficient learning of deep networks from decentralized
+data,” inProc. Artif. Intell. Stat., 2017, pp. 1273–1282.
+[41] S. Diamond and S. Boyd, “CVXPY: A python-embedded modeling
+language for convex optimization,”J. Mach. Learn. Res., vol. 17, no. 83,
+pp. 1–5, 2016.
+[42] M. M. Amiri and D. G ¨und¨uz, “Federated learning over wireless fading
+channels,”IEEE Trans. Wireless Commun., vol. 19, no. 5, pp. 3546–
+3557, 2020.
+[43] H. Xiao, K. Rasul, and R. V ollgraf, “Fashion-mnist: a novel image
+dataset for benchmarking machine learning algorithms,”arXiv preprint
+arXiv:1708.07747, 2017.
+[44] Z. Lin, Y . Gong, and K. Huang, “Distributed over-the-air computing
+for fast distributed optimization: Beamforming design and convergence
+15
+analysis,”IEEE J. Sel. Areas Commun., vol. 41, no. 1, pp. 274–287,
+2022.
+[45] W. K. Hastings, “Monte Carlo sampling methods using Markov chains
+and their applications,” 1970.
+[46] X. Lian, C. Zhang, H. Zhang, C.-J. Hsieh, W. Zhang, and J. Liu,
+“Can decentralized algorithms outperform centralized algorithms? A
+case study for decentralized parallel stochastic gradient descent,”Adv.
+Neural Inf. Process. Syst., vol. 30, 2017.
+[47] H. Weyl, “Das asymptotische verteilungsgesetz der eigenwerte linearer
+partieller differentialgleichungen (mit einer anwendung auf die theorie
+der hohlraumstrahlung),”Math. Ann., vol. 71, no. 4, pp. 441–479, 1912.
