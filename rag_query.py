@@ -31,6 +31,7 @@ RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-
 PGVECTOR_CONNECTION_STRING = os.getenv("PGVECTOR_CONNECTION_STRING")
 LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")
 LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 DEFAULT_MODEL = "gpt-oss:20b"
 DEFAULT_TOP_K = 5
@@ -143,15 +144,18 @@ def build_messages(
 
 def call_llm(messages: list[dict], model: str) -> str:
     import litellm
-    # When a custom proxy endpoint is configured, route through it via the
-    # OpenAI-compatible provider (prefix "openai/") so LiteLLM doesn't try
-    # to call Vertex AI / Google AI Studio directly.
+    # Gemini models use OPENAI_API_KEY (a separate key with Gemini access on the proxy).
+    # All other models use LITELLM_API_KEY routed through the OpenAI-compatible proxy.
+    if model.startswith("gemini"):
+        api_key = OPENAI_API_KEY
+    else:
+        api_key = LITELLM_API_KEY
     routed_model = f"openai/{model}" if LITELLM_BASE_URL else model
     response = litellm.completion(
         model=routed_model,
         messages=messages,
         api_base=LITELLM_BASE_URL,
-        api_key=LITELLM_API_KEY,
+        api_key=api_key,
     )
     return response.choices[0].message.content
 
@@ -227,7 +231,7 @@ def main():
     parser = argparse.ArgumentParser(description="RAG query interface")
     parser.add_argument("--query", "-q", type=str, help="Single query (non-interactive)")
     parser.add_argument("--top-k", "-k", type=int, default=DEFAULT_TOP_K, help="Number of chunks to retrieve (default: 5)")
-    parser.add_argument("--model", "-m", type=str, default=DEFAULT_MODEL, help=f"LLM model to use (default: {DEFAULT_MODEL})")
+    parser.add_argument("--model", "-m", type=str, default=DEFAULT_MODEL, help=f"LLM model to use (default: {DEFAULT_MODEL}). Examples: gpt-oss:20b, gemini-2.5-flash")
     args = parser.parse_args()
 
     if not PGVECTOR_CONNECTION_STRING:
