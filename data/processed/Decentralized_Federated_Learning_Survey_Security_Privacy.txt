@@ -1,0 +1,2313 @@
+IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024 1
+Decentralized Federated Learning: A Survey on
+Security and Privacy
+Ehsan Hallaji, Graduate Student Member, IEEE, Roozbeh Razavi-Far, Senior Member, IEEE,
+Mehrdad Saif, Fellow, IEEE, Boyu Wang, Member, IEEE, Qiang Yang, Fellow, IEEE
+Abstract—Federated learning has been rapidly evolving and
+gaining popularity in recent years due to its privacy-preserving
+features, among other advantages. Nevertheless, the exchange of
+model updates and gradients in this architecture provides new
+attack surfaces for malicious users of the network which may
+jeopardize the model performance and user and data privacy.
+For this reason, one of the main motivations for decentralized
+federated learning is to eliminate server-related threats by
+removing the server from the network and compensating for it
+through technologies such as blockchain. However, this advantage
+comes at the cost of challenging the system with new privacy
+threats. Thus, performing a thorough security analysis in this new
+paradigm is necessary. This survey studies possible variations
+of threats and adversaries in decentralized federated learning
+and overviews the potential defense mechanisms. Trustability
+and verifiability of decentralized federated learning are also
+considered in this study.
+Index Terms—Federated learning, privacy-preserving, security,
+blockchain, adversarial attacks, decentralized federated learning,
+verifiable federated learning.
+I. I NTRODUCTION
+W
+ITH the widespread use of machine learning over the
+recent years, new concerns have been raised regarding
+user and data privacy. The data-driven nature of these intelli-
+gent models necessitates gathering users’ data to constantly
+improve and maintain the operating statistical model. This
+issue becomes more problematic in large-scale distributed
+systems with millions of users such as mobile networks.
+Aside from privacy issues, in large-scale systems, com-
+municating user data may pose an overhead to the network.
+This is while information technology and intelligent devices
+are evolving at a rapid pace, and in the wake of it, there is
+an explosion of data at the edge of the network. Given the
+potential benefits of this data collection process for improving
+their model, organizations tend to make the best use of it
+This work was supported by the Natural Sciences and Engineering Research
+Council of Canada (NSERC).
+Ehsan Hallaji and Mehrdad Saif are with the Department of Electrical
+and Computer Engineering, University of Windsor, Windsor, ON N9B 3P4,
+Canada. E-mail: hallaji@uwindsor.ca, msaif@uwindsor.ca.
+Roozbeh Razavi-Far is with the Faculty of Computer Science, University
+of New Brunswick, Fredericton, NB E3B 5A3, Canada, and also with the
+Department of Electrical and Computer Engineering, University of Windsor,
+Windsor, ON N9B 3P4, Canada. E-mail: roozbeh.razavi-far@unb.ca.
+Boyu Wang is with the Department of Computer Science and the Brain
+Mind Institute, University of Western Ontario, London, ON N6A 5B7, Canada.
+E-mail: bwang@csd.uwo.ca.
+Qiang Yang is with the Department of Computer Science and Engineering,
+Hong Kong University of Science and Technology, Clear Water Bay, Kowloon,
+Hong Kong, and also with the Department of AI, WeBank, Gaungdong
+Province, China. E-mail: qyang@cse.ust.hk.
+for knowledge extraction with minimal waste of data. Thus,
+modern intelligent systems struggle to find the optimal trade-
+off between user privacy and service quality.
+Inspired by recent breakthroughs in distributed optimization
+[1], Federated Learning (FL) has proposed as a potential solu-
+tion to resolve the aforementioned challenges [2]. In contrast
+to distributed machine learning which is shown in Fig. 1(a),
+FL proposes training local models at the edges of the network
+and then sharing the model parameters to a central server that
+aggregates the received information and then updates all the
+client models.
+Aside from its use in distributed training of Deep Learning
+(DL) models, FL offers additional advantages. Firstly, by
+communicating the local model parameters rather than the
+user’s data, the central model is trained on decentralized
+data, which no longer jeopardizes data privacy. Secondly, the
+communication is extensively reduced for large-scale systems,
+as the volume of model parameters is often smaller than the
+training data itself. The general scheme of FL workflow is
+illustrated in Fig. 1(b). As shown in this figure, for client i, a
+model Mi is constructed locally based on the local user data
+Di. The model parameters Mi are then sent to a server that
+aggregates all models in the form of P(M1, M2, M3) = u,
+where P(·) and u are the aggregation function and the
+generated update, respectively. Finally, u is sent back to the
+clients to update local models.
+Despite the breakthrough made by FL, the proposed ar-
+chitecture was not flawless and demanded further research
+endeavors on the topic. To begin with, although the user
+data is not being shared in the network, communicating local
+parameters is still vulnerable to sniffing attacks which will lead
+to stealing model parameters for launching an inference attack
+to extract sensitive information from the local training data at
+the edges of the networks [3]. In addition, the trustability of
+the central server is sometimes questionable in environments
+such as wireless networks. Moreover, having a Single Point of
+Failure (SPF) in the system is not ideal since a compromised
+server can affect the whole network [4]. While various works
+have been dedicated to designing defense mechanisms for FL,
+it was proposed that decentralizing the FL architecture will
+eliminate part of these security challenges [5].
+Relying on Peer-to-Peer (P2P) communications, Decentral-
+ized Federated Learning (DFL) improves both the reliability
+and scalability of FL by eliminating SPF and enhancing the
+communication efficiency [6], [7]. The process of local update
+preparation is similar to that of FL; however, exchanging
+model parameters and model aggregation is mostly undertaken
+arXiv:2401.17319v1 [cs.CR] 25 Jan 2024
+2 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+(b) Federated Learning (c) Decentralized Federated Learning
+D1
+M1
+D1
+M1
+D2
+M2
+D2
+M2
+D3
+M3
+D3
+M3 u
+u
+u
+Server
+D1
+M1
+D2
+M2
+D3
+M3 u
+u
+u
+Server
+D1
+M1
+D1
+M1
+D2
+M2
+D2
+M2
+D3
+M3
+D3
+M3
+∑ 
+∑ ∑ 
+u
+u
+u
+Switching the aggregator node
+(a) Distributed Training
+D1
+D2
+D3 MM
+Server
+D1
+D2
+D3 M
+Server
+Fig. 1. Workflow of distributed training, FL, and DFL with three nodes. Di, Mi, and u denote client data, local model parameters, and the generated update
+by the server. In this example, three clients are shown in the picture (i.e., 1 ≤ i ≤ 3).
+through P2P communication or blockchain technology. For in-
+stance, a generic diagram of a DFL workflow is shown in Fig.
+1(c), where a client is assigned with the aggregator role in each
+round (i.e., shown with dotted lines) to apply the aggregating
+function P(M1, M2, M3) = u on the received parameters
+and update all nodes with u. The protocol for selecting the
+aggregating node and the P(·) function varies among different
+DFL architectures. Integration with blockchain brings about
+additional advantages including traceability and immutability.
+Despite the security and efficiency features of DFL, this archi-
+tecture is not flawless. For instance, incorporating blockchain
+into FL may come at the cost of making the system defenseless
+against blockchain-related security adversaries. The trustabil-
+ity of the DFL participants is another issue of concern that
+requires further research.
+Currently, the literature lacks a survey that primarily studies
+the security and privacy of DFL. Available reviews on DFL
+generally study trending approaches in DFL with an emphasis
+on the application in the Internet of Things (IoT) [8]–[13]. On
+the other hand, surveys on security and privacy of centralized
+FL [14]–[19] do not discuss the applicability of their analysis
+and findings to DFL. Among the limited number of surveys
+on DFL, [20] studies security issues in centralized FL that
+can be addressed through blockchain integration. However,
+the literature still lacks a thorough security analysis of threats
+in DFL and its potential defense mechanisms. Hence, it is
+worthwhile to perform a comprehensive survey on the new
+attack surface created on DFL, and defense mechanisms that
+can be directly used or adapted for DFL. Toward this goal,
+this survey makes the following contributions:
+• State-of-the-art DFL methods are reviewed in terms of
+security robustness and employed technologies.
+• Potential threats to DFL systems are identified and ex-
+plained.
+• Defense mechanisms that can safeguard DFL systems
+against attacks are studied and analyzed.
+• The effect of blockchain integration on the security and
+privacy of DFL is studied.
+TABLE I
+ABBREVIATIONS USED IN THIS ARTICLE . THE LIST IS SORTED
+ALPHABETICALLY .
+Abbreviation Definition
+BAFFLE Blockchain-based aggregator free FL
+BEAS Blockchain enabled asynchronous and secure FL
+BFLC Blockchain-based FL with committee consensus
+BindaaS Blockchain-based deep learning as-a-service
+DDoS Distributed denial of service
+DFL Decentralized federated learning
+DL Deep learning
+DoS Denial of service
+DP Differential privacy
+f-DP Functional differential privacy
+FL Federated learning
+FTL Federated transfer learning
+GAN Generative adversarial network
+HE Homomorphic encryption
+HFL Horizontal federated learning
+IoT Internet of things
+P2P Peer-to-peer
+PoS Proof of state
+PoW Proof of work
+TEE Trusted Executive Environment
+TL Transfer learning
+VFL Vertical federated learning
+SC Smart contract
+SGD Stochastic gradient decent
+SL Swarm learning
+SMC Secure multiparty computation
+SPF Single point of failure
+• The connection between verifiable FL and DFL is studied
+from a security standpoint.
+• Undiscovered domains and demanding research direc-
+tions in enhancing DFL security and privacy are identified
+and introduced.
+Reviewed works in this survey are collected from Scopus
+and Google Scholar searches. The keywords used for the
+search are FL, DFL, security, privacy, attack, defense, and
+blockchain. After the initial search, irrelevant papers to the
+topic of this survey were excluded. Furthermore, the search
+was limited to works after 2015, and we consider published
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 3
+or in-press research works, as well as arXiv preprints.
+Towards this, we outline the background for this survey in
+Section 2. Preliminaries of DFL are reviewed in Section 3.
+Section 4 studies possible threats to DFL. Section 5 discusses
+the potential defense mechanisms in DFL. Section 6 elaborates
+on the verifiability of DFL. Future research directions are
+discussed in Section 7. Finally, the survey is concluded in
+Section 8. This survey contains several abbreviations to make
+discussions more concise, which are listed in Table I.
+II. B ACKGROUND
+DFL is a paradigm that often encompasses both FL and
+blockchain technologies, although it is important to note
+that DFL can exist independently of blockchain. To better
+comprehend the concept of DFL, it is crucial to have a clear
+understanding of the fundamentals of FL and blockchain.
+Thus, the following section provides a concise overview of
+these concepts.
+A. Federated Learning
+FL was proposed to reduce the risks of data ownership in
+collaborative training of DL models. Prior to the introduc-
+tion of FL, collaborative training required immense loads of
+data exchange between participants of a distributed machine
+learning framework in which the clients constantly send local
+training data to a central server. The distributed model is
+then trained on the accumulated training data gathered from
+across the network. Nevertheless, communicating user data
+and overburdening the network with excessive communication
+load raised new concerns that motivated the invention of FL
+[2]. In simple words, rather than sharing the training of the
+local data with the server, the client in FL locally trains a
+model of the same structure on the user data and sends the
+obtained model parameters to the server once convergence is
+achieved. The server aggregates these parameters (e.g., neural
+network weights) and updates all the client models with the
+aggregated parameters. As this cycle continues, in each round,
+clients initialize their local model parameters with the received
+update from the server before starting the local training and
+issuing an update to the server. It is worth mentioning that
+the collaboration schemes between clients at the edge of
+the network have been a topic of interest in the domain of
+multi-agent systems even before the birth of FL [21]. For
+instance, client-server collaboration in FL somehow resembles
+the umbrella system in which all agents communicate with a
+server [22].
+The aforementioned process in FL, however, assumes the
+homogeneity of data among all clients, which may not al-
+ways be the case. This leads to the evolution of FL into
+a more advanced structure for dealing with heterogeneous
+data and comes with additional security perks. Specifically,
+[23] categorizes techniques in this field into three groups: 1)
+Horizontal FL (HFL) [24], 2) Vertical FL (VFL) [23], [25],
+and 3) Federated Transfer Learning (FTL) [23], [26]. The
+difference between these groups is in the nature of the training
+data in the FL systems. HFL which is basically defined based
+on the initial FL model in [24], assumes a diverse range
+of samples across all local training sets that all fall under
+a similar feature space. VFL on the other hand, considers a
+common sample space among participants who differ in the
+feature space. FTL addresses the minimal overlap between
+both sample and feature space by resorting to transfer learning
+for transferring knowledge between participants.
+It is worth mentioning that this categorization has primarily
+focused on centralized FL. Therefore, the focus of this survey
+is primarily on DFL which differs from the centralized FL.
+The central server in the FL systems is in charge of verifying
+the network clients, aggregating the local parameters, and
+broadcasting an update. With the absence of servers in the
+DFL structure, these tasks must be performed using the client
+networks. The current literature usually devises the concept of
+blockchain to carry out the mentioned tasks.
+Even though the initial FL model was proposed on the basis
+of DL, decision tree models can also be employed and adapted
+to FL frameworks [27]–[29]. Threats and defense mechanisms
+that will be later reviewed in this work generally apply to both
+DL and tree-based models.
+B. Blockchain
+Blockchain is designed primarily with the objective of
+making the data exchange immutable and traceable over a
+P2P network [30]. Similar to FL, in a blockchain network
+data is decentralized, and each user will transfer data using
+a block. This consists of the data, a hash acting as a unique
+identifier for the block, and a previous hash pointing to the
+previous block in the chain. While these hashes make the data
+traceable in the chain, they also complicate tampering with
+data, as changing the data in an existing block will also alter
+the associated hash which creates a discrepancy in the chain.
+A key idea behind the blockchain is to prevent a certain
+participant from controlling the network and provide all net-
+work members with an equal chance to verify and control
+the transactions [8], [31]. Nonetheless, finding the optimal
+solution to ensure fairness in assigning the evaluators is still
+an open problem and as a result, many consensus mechanisms
+have been proposed over time. Perhaps, the most common
+consensus mechanisms are Proof of Work (PoW) and Proof
+of State (PoS), albeit they are not necessarily the best. In
+PoW, the participants (also called miners) need to solve a
+time-consuming problem and anyone who achieves the answer
+quicker will get a chance to contribute to the chain. As an
+alternative to PoW, PoS randomly selects the evaluators with
+the aim of improving the scalability.
+Based on the current literature, Blockchain approaches can
+fall into four major categories, namely 1) public, 2) private,
+3) consortium, and 4) hybrid blockchain (i.e., we refer to this
+as DFL) [8], [32], [33]. These variations are briefly explained
+in the following.
+1) Public: Blockchain is built in a permissionless network
+that allows anyone to join the network and participate
+in the consensus process [30].
+2) Private: Participants can join the network through a
+received authorization [34], [35]. While permissions are
+granted in a centralized manner, the consensus mecha-
+nisms are decentralized [36], [37].
+4 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+HeaderHeaderHeader
+ID: k
+Header
+ID: k
+Header
+ID: 2
+Header
+ID: 2
+Header
+ID: 1
+Header
+ID: 1
+HeaderHeader
+Train
+. . .
+Client 1
+Client 2 Client k. . .
+Conditions are 
+satisfied
+Minimum #. Participants: k
+Maximum #. contributions for each ID
+Acceptable scores
+...
+Previous hash
+Time stamp 
+Merkle root
+Nonce
+...
+Global 
+model
+ConditionsHeader content Smart Contract
+Score
+Yes
+No
+∑(.):∑(.):
+Round t+1Round t
+Client i
+. . .
+. . .
+Initialize
+𝐷1 
+𝑢𝑡 
+𝑀1 
+𝑀2 
+𝑀𝑘 
+𝑢𝑡+1 
+𝑆1 
+𝑆2 
+𝑆𝑘 
+𝑆1 = 𝑀1 −𝑢𝑡 
+𝐴𝑟𝑔𝑚𝑎𝑥(𝑆𝑖), 
+𝐹𝑒𝑑𝐴𝑉𝐺 {𝑀 𝑖}𝑖=1
+𝑘 , 
+… 
+∑(𝑀1,𝑀2,… ,𝑀𝑘) 
+Aggregation
+IDParameters
+Fig. 2. Generic process of blockchain-based DFL. SC can use any choice of aggregation mechanism such as selecting the update with the highest score or
+averaging all received model parameters. Si indicates the calculated score for the estimated model parameters for client i.
+3) Consortium: Blockchain is semi-decentralized and the
+network access is managed by more than one entity [38],
+[39].
+4) Hybrid: Block construction is carried out within a
+private network and the storage is done through a public
+network [40], [41].
+III. D ECENTRALIZED FEDERATED LEARNING
+As mentioned, the main flaw with the centralized FL is
+the dependency of the entire federation on a central server
+whose privacy and performance directly affect all the clients
+in the system [42]–[44]. In other words, a compromised server
+will jeopardize the whole federated learning system [45]. To
+eliminate the dependency of the whole network on a single
+node and also enhance the communication efficiency [46],
+DFL resorts to P2P communications to bypass the need for
+a central server. To do so, model aggregation and participant
+verification should be carried out in a serverless fashion.
+As explained in Section II, DFL often uses blockchain to
+facilitate inter-node communications. While this combination
+is non-absolute, blockchain can effectively facilitate commu-
+nication by treating model updates as data within a block and
+sharing the block with respect to a consensus mechanism.
+In this process, local model construction is similar to that
+of FL, and prepared updates will be in the form of a data
+block. The prepared block will be then shared with the rest
+of the nodes for consensus and addition to the blockchain.
+The aggregation mechanisms of DFL work on the basis of
+decentralized Stochastic Gradient Decent (SGD), which makes
+use of gossip averaging [47].
+DFL models that use blockchain have distinct architectures.
+For instance, the block structure, information included in the
+headers, aggregation, and consensus mechanisms can all be
+different in each architecture. However, a generic scheme is
+shown in Fig. 2 that resembles the most common practices
+in designing a blockchain-based DFL. In this example, the
+blockchain is initialized using a single block containing the
+starting global model. Each update is added as a new block that
+is linked to the previous block in the chain using a header. On
+the client’s side, the local model is initialized using the global
+model ut and trained on the i-th client data Di. Once the
+trained model Mi is obtained, a score Si is estimated w.r.t. the
+difference between the global model and the estimated local
+model. Nevertheless, not all blockchain-based DFL models
+necessarily use a scoring system. The client then uploads data
+to the blockchain by creating a block containing a header,
+trained model, estimated score, and the uploader identifier
+(ID). In some architectures, clients are directly communicating
+with a set of miners to obtain the Merkle root of the data before
+uploading the block. It is also worthwhile to mention that the
+block size is often limited to a fixed size. If the model size
+is larger than the block size, the uploader has to upload a set
+of serialized blocks to the blockchain [48]. The SC on this
+blockchain uses a set of rules to determine when the global
+model should be updated. For instance, a minimum number
+of unique clients k are required to participate in updating
+ut. Furthermore, considering that each client is allowed to
+serialize its updates into multiple blocks, a limit is set to
+define the maximum number of contributions by each client
+in each round. The aggregation mechanism varies in different
+DFL architectures. While the majority of DFL models use an
+averaging function P(·) similar to that of federated averaging
+(FedA VG) [2], other frameworks use different approaches such
+as selecting the update with the highest score [48].
+While the initial DFL model [49], [50] was proposed with
+the aim of security enhancement and failure robustness of FL
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 5
+Fig. 3. Advances in decentralized federated learning in time. The order of the methods is set based on the first version that became available online (e.g.,
+pre-prints).
+using Bayesian beliefs of one-hop neighbors, several research
+studies extend their work by improving the overall efficiency
+and security. Fig. 3 illustrates the historical evolution of DFL
+since it was first proposed in 2018. BAFFLE [48] makes
+use of Smart Contracts (SC) to facilitate storing the FL
+model and clients’ states. Model updates and aggregation
+is also carried out by resorting to SC. BAFFLE takes the
+computational states into account in order to preserve fairness
+among clients. Another approach, Blade-FL [51], uses clients
+for both mining and training via gossip learning. A novel
+consensus mechanism was proposed in [52] to enhance the
+efficiency and privacy of the system. The DFL framework
+proposed based on this committee consensus mechanism is
+called BFLC. The Biscotti technique [5] integrates DFL with
+Differential Privacy (DP) to safeguard DFL against a range of
+attacks. Focused on healthcare applications, [53] introduces
+the BindaaS method, which integrates DL as a service and
+lattices-based cryptography. This enables BinDaaS to employ
+an authentication phase that enhances DFL attack resilience.
+Another DP-based DFL approach called LearningChain is
+proposed with the aim of combating Byzantine attacks [54]. To
+do this, LearningChain utilizes a new aggregation mechanism
+for decentralized SGD. Reference [55] designs the PIRATE
+framework based on the sharding approach in blockchain
+which helps in securing the aggregation process. BEAS [56]
+employs DP, gradient pruning, and anomaly detection to
+protect DFL against poisoning attacks. BEAS is also adapted
+for heterogeneous data to ensure proper convergence of the
+global model. BrainTorrent [57] is a DFL method that employs
+version control and arbitrarily assigns a participant to act
+as the server. A reputation management scheme is used in
+[58] to select updates from reliable workers in the blockchain
+which reduces the probability of successful poisoning attacks
+in the DFL system. BlockFLA [59], uses smart contracts to
+detect and penalize malicious nodes by means of monetary
+penalty. BlockFLA requires uploading hashed updates into
+separate private and public blockchains. Smart contracts is
+used for aggregating gradients whereas hashed updates are
+used for evaluating the updates through recovering the pa-
+rameters to detect any mismatch. DFedForest is a tree-based
+DFL framework that uses bagging for tree construction [60].
+This method devises a private test dataset for evaluating the
+uploaded parameters as malicious updates are expected to
+result in anomalous outputs on this data. Bift, [61], designs
+a Proof of FL by combining PoW with FederatedA VG [2]
+and FederatedSGD [62] aggregation schemes to reach secure
+DFL with low communication overhead. A verifiable version
+of DFL [63] incorporates private key sharing and gradient
+masking into the consensus mechanism to defend against
+malicious miners and dropouts. Swarm Learning (SL) also
+integrates FL and blockchain to distributively train a model
+for diagnosing a number of diseases while safeguarding the
+patient’s data privacy and security [64]. Security and privacy
+features of SL are limited to those of blockchain and the
+P2P DFL design. However, there is an extension of SL that
+couples it with HE is also presented in [65] to secure SL
+communications against privacy attacks. Various aspects of
+SL such as fault tolerance, scalability, and fairness are studied
+6 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+TABLE II
+IDENTIFICATION OF SOURCES OF ATTACKS IN FL SYSTEMS .
+Attacks Source of Attack
+Data poisoning Malicious client
+Gradient manipulation Malicious client
+Backdoor attack Malicious client and malicious server
+Evasion attack Malicious client and model deployment
+Non-robust aggregation Aggregation algorithm
+Training rule manipulation Malicious client
+Inference attacks Malicious server and communication
+GAN reconstruction Malicious server and communication
+Free-riding attack Malicious client
+Man-in-the-middle attack Communication
+in [66], and the results indicate an overall improvement over
+centralized FL.
+Despite the security advantages of blockchain integration
+with DFL, communication delay and resource consumption
+issues often become problematic in this domain [31]. As
+mentioned in Section II, the process of model aggregation and
+achieving a consensus often requires sufficient computational
+power at the edge of the network which may not always be
+practical (e.g., mobile networks). This becomes more critical
+for consensus mechanisms such as PoW. As a result, the
+model aggregation process may be usually delayed due to the
+potential computational constraints.
+IV. T HREATS TO DECENTRALIZED FEDERATED LEARNING
+As shown in Fig. 4, the security and performance of DFL
+are directly related to those of FL and blockchain. Generally,
+threats to DFL target privacy or the performance of the global
+model. In centralized FL, all the possible threats involve the
+server at some point as the server is the core of the system
+for aggregation, communication, and validation. As a result,
+the trustworthiness of the server is of great importance in
+FL as a malicious server can easily attack all clients. On the
+other hand, attacking the server and causing a malfunction can
+also disable the entire system. Table II lists sources of threats
+for common attacks on FL. However, in DFL, all possible
+threats will be traced back to the clients or miners. Table V
+indicates attack models that are considered in the design of
+the aforementioned DFL techniques.
+Malicious clients can follow different attack models to
+jeopardize the performance or privacy of the system [16]. For
+instance, an adversary can be either semi-honest or aggressive.
+In the semi-honest model, the objective is to infer confidential
+information while complying with the DFL protocol. This
+phase can be also used as a reconnaissance step prior to
+launching an aggressive attack where the aim is to degrade
+the system’s performance. Using this combination, one can
+first learn the global model parameters using a semi-honest
+approach and then actively forge malicious updates in order to
+insert a backdoor in the global model. Due to the immutability
+of blockchain, hackers cannot directly manipulate the training
+data in a block. Nevertheless, they can reach their objective
+by sending the gradients that lead to incorrect predictions. To
+do so, gradients can be forged targeted or untargeted. As the
+name implies, the latter aims at degrading the performance of
+all classes in general whereas the targeted scheme only attacks
+a certain class without tampering with the rest of the model
+[16].
+A. Attacks on Performance
+The performance of the DFL model is mostly targeted by
+means of poisoning attacks. In addition, there are certain
+blockchain-based attacks that also apply to DFL. An overview
+of these attacks for DFL is given in the following.
+1) Data Poisoning: Data poisoning techniques in FL and
+DFL could be somewhat different. In centralized FL, data
+poisoning is referred to as the process of corrupting the local
+training data via backdoor injection or introducing label noise
+which in turn produces deviating gradients and misleads the
+FL model [67]. In this setting, usually, the intruder disguises
+as a member of the federation and uses its artificially made
+data. As an example, reference [68] studies different variations
+of label poisoning in federated learning systems and mitigates
+these attacks by reformulating the problem as a label noise
+classification task.
+Aside from the aforementioned mechanisms for data poison-
+ing, the following attacks can be planned to take advantage of
+the blockchain backbone that most DFL methods rely on:
+Disrupting Communications: Blockchain is robust by
+nature against Denial of Service (DoS) attacks as there is no
+possible SPF that can be targeted. Nevertheless, Distributed
+DoS (DDoS) attacks can still slow down inter-node communi-
+cations in the DFL system. DDoS agents continuously generate
+fake transactions and send them to the chain to fill up the
+blockchain buffer with spam data once the blockchain capacity
+is reached. This significantly postpones the inclusion of valid
+data into the upcoming blocks which puts the functionality of
+the blockchain under question. This is besides the permanent
+effect DDoS leaves on the DFL due to the data immutability
+of the blockchain.
+Degrading Detection Performance: Using a targeted attack
+model, an intruder can inject certain triggers into the local
+model and obtain gradients in a way that the rest of the model
+remains intact [7]. This backdoor attack results in sharing the
+poisoned parameters with the rest of the DFL participants
+and introducing the backdoor into their model as well. For
+instance, backdoors are injected into the DFL network in [56]
+with two different mechanisms, namely label flipping [69] and
+pixel patch backdoor [70]. The number of malicious nodes is
+restricted to prevent intruders from controlling the consensus
+(i.e., 2Ncorrupted + 2 < N , where N and Ncorrupted indicate
+the number of all nodes and corrupted ones, respectively). A
+pixel pattern backdoor is also simulated in [59] for DFL with
+smart contract. The untargeted scheme of this attack which
+is also known as the Crashing DoS attack, follows the same
+process with the exception of degrading the performance of
+the entire model rather than for a specific class. While the
+untargeted version is easier to implement, it is also easier
+to detect. Note that the literature usually defines DoS differ-
+ently for blockchain and FL. DoS in blockchain renders the
+global model inaccessible, whereas in FL, it makes the global
+model unusable. Reference [5] presents an example of a data
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 7
+Blockchain 
+Security
+51% 
+Attacks
+Private 
+Key 
+Security
+Routing 
+Attacks
+Double 
+Spending
+Vulnurable
+Smart 
+Contracts
+Sybil 
+Attacks
+Federated 
+Learning
+Decentralized 
+Federated 
+Learning
+Attacks on 
+Performance
+Attacks on 
+Privacy
+Model 
+Inversion
+Inference 
+Attacks
+Evasion 
+Attacks
+Membership 
+Inference
+Feature 
+Inference
+Model 
+Poisoning
+Data 
+Poisoning
+DoS
+DDoS
+Backdoor
+Gradient 
+Tampering
+Training 
+Objective 
+Tampering
+Fig. 4. Overview of security and privacy threats on decentralized federated learning. Threats are generally related to privacy, model robustness, or blockchain
+bottleneck of DFL.
+poisoning attack in DFL which is simulated with the aim of
+corrupting the global model performance. In this scenario, 30
+percent of nodes are considered malicious, with the assumption
+that the number of malicious nodes does not change in time.
+Another case is tested in [54] by generating forged gradients
+drawn from a Gaussian distribution by several Byzantine data
+holders (i.e., trusted nodes went rouge in the DFL network).
+Reference [58] simulates this attack by filliping the class
+labels randomly on the training data. In contrast to poisoning
+attacks that primarily corrupt the training process, evasion or
+exploratory attacks occur during the inference phase after the
+model has been trained. Their goal is typically not to change
+the trained model, but rather to generate incorrect predictions
+or gather information about the model’s characteristics.
+Causing Legal Problems: By law, the inclusion of personal
+data is prohibited in some regions of the world. European
+general data protection regulation can be mentioned as a good
+example of this legal constraint. A malicious user, however,
+can poison the blockchain by inserting personal data into a data
+block and adding it to the chain which makes the DFL system
+non-compliant with the existing legal bounds. We call these
+adversaries privacy poisoning attacks. Despite its importance,
+not many research studies considering this type of attack in a
+DFL paradigm have been reported.
+2) Model Poisoning: Model poisoning is the process of
+maliciously controlling global model training. While data
+poisoning can be also used as a tool to cause model poisoning
+[56], model poisoning without data manipulation is also pos-
+sible. As an example, one can simply change the objective of
+the local model to obtain poisoned gradients using valid data
+on the same model structure as the rest of the network [7]. For
+instance, an additional term can be added to the objective to
+penalize sensitivity to malicious data [71]. The same approach
+can be followed to deteriorate the overall performance in an
+untargeted manner (e.g., gradient manipulation). This case
+is also studied in [55] where a set of Byzantine nodes are
+considered to generate and inject deviating gradients into the
+blockchain in order to degrade the shared DFL model via an
+outsider attack. A similar approach is used in [52] to corrupt
+gradients using pointwise Gaussian noise.
+3) Routing Attacks: Reliable network infrastructure is of
+paramount importance for DFL due to its integration with
+blockchain [72], [73]. This is while some of the utilized
+network protocols used by current internet service providers,
+such as the border gateway protocol, come with security flaws.
+Blockchain has no control over the network layer as it mostly
+works in the application layer. Thus, if the service provider
+network is breached, the routing of packets can be tampered
+with to either discard the transferring data blocks or change
+the blockchain structure. An example of a routing attack is
+a hack that took place in 2014 in which the intruder used
+the hijacked blocks to provide PoW and steal the associated
+rewards.
+4) Consensus Attacks: The objective of these attacks is
+to obtain the majority of approvals in order to control the
+consensus mechanism in the DFL system. Depending on the
+number of agents or nodes involved in these attacks, they
+will be called 51% or Sybil attacks. Sybil attacks indicate
+the scenario in which an intruder creates multiple fake nodes
+and claims to be more than one entity to impose a greater
+influence on the consensus. If intruders manage to take control
+of 51 percent of the nodes, the consensus mechanism is fully
+controllable. At this scale, the attack is known as 51% attack
+in the literature [52]. It is worth mentioning that consensus
+attacks are most effective when the blockchain associated with
+the DFL is at its early stage when the number of participants
+is still limited. PoW and PoS can drastically complicate
+consensus attacks for hackers.
+8 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+TABLE III
+CHARACTERISTICS AND DESCRIPTION OF ATTACKS IN DFL. T HE EASE OF IMPLEMENTATION , EFFECTIVENESS , AND DEFENSE FEASIBILITY FOR EACH
+ATTACK IS EVALUATED .
+Attacks Target Implementation Effectiveness Defensibility
+Backdoor Performance Challenging High Challenging
+DoS/DDoS Performance Simple Moderate Simple
+Gradient manipulation Performance Challenging High Challenging
+Training objective manipulation Performance Challenging High Challenging
+Evasion attacks Performance Simple Moderate Moderate
+Model inversion Privacy Simple Low Moderate
+Feature inference Privacy Simple Moderate Moderate
+Membership inference Privacy Challenging High Challenging
+Hijacking private key Blockchain Challenging High Challenging
+51% attack Blockchain Challenging High Challenging
+Sybil attacks Blockchain Simple High Challenging
+Double spending Blockchain Challenging High Challenging
+Routing attacks Blockchain Simple Moderate Challenging
+Privacy poisoning Blockchain/Privacy Moderate Moderate Moderate
+Attacks on SC Blockchain Challenging High Moderate
+B. Attacks on Privacy
+Despite the decentralization of data in DFL, gradient and
+parameter information can be visible to system clients. Pre-
+viously, we studied the effect of such information leakage on
+the performance of the DFL model. Here, we elaborate on the
+privacy risks associated with DFL networks.
+1) Model Inversion Attacks: Model inversion can be used to
+approximate and reconstruct the private data of clients merely
+based on the classification model [7]. An example of this attack
+is reported in [56] where gradient leakage [74] of a global
+DFL model is used for reconstructing the user’s local data.
+This process is often carried out using a DL-based generator.
+For instance, Generative Adversarial Networks (GAN) can
+be employed to perform model inversion by using the target
+model as the discriminator and training a generator network to
+minimize a cost that eventually converges and produces data
+samples similar to that of the targeted client.
+2) Membership Inference Attacks: Membership inference
+attacks are focused on revealing sensitive information associ-
+ated with certain samples. Membership inference can disclose
+the membership of a sample to a certain class, or elicit attribute
+information [75], [76]. An example of this attack can be found
+in [5], where an inference attack by observing the clients’
+updates in a DFL network and using the leaked gradients to
+infer record-level information of local datasets.
+3) Hijacking Private Key: Securing private keys and public
+key using cryptography is one of the most critical aspects of
+blockchain which is the backbone of DFL. If there is any
+imperfection in the key signing mechanism, hackers can hijack
+a client’s private key using their public key. Taking over a
+client’s private key enables the hacker to gain full access to
+the corresponding data in the blockchain.
+4) Vulnerability of Smart Contracts: Smart contracts, which
+are coded agreements utilizing blockchain technology for
+record-keeping, can be susceptible to security flaws. While
+they eliminate the need for intermediaries and provide im-
+mutable contracts, there is a risk associated with poorly
+coded smart contracts. These coding vulnerabilities create
+opportunities for attackers to identify flaws in the code and
+exploit them. By exploiting these weaknesses, attackers can
+potentially manipulate or extract unauthorized access to the
+contract’s contents or associated assets. It is crucial to ensure
+thorough code review and rigorous testing to identify and
+address these security flaws to safeguard the integrity and
+trustworthiness of smart contracts.
+C. Analyzing the Viability of Attacks
+Table III provides an overview of the analyzed attacks,
+highlighting their key characteristics. When evaluating these
+attacks, it is crucial to assess their feasibility and effectiveness
+to design effective defense mechanisms and allocate appropri-
+ate resources to secure DFL systems.
+1) Ease of implementation: Implementing a backdoor at-
+tack is considered to be difficult because it requires extensive
+knowledge of the target DFL system, access to training data,
+and the ability to modify model parameters [77]. Backdoor
+attacks often involve sophisticated techniques and may require
+compromising multiple clients or insiders with privileged
+access [70], [78]. Conversely, carrying out a DoS or DDoS
+attack is relatively less complicated. These attacks overwhelm
+the system with a high volume of requests or malicious traffic,
+and readily available tools and techniques can be used to
+execute them [79].
+Gradient manipulation necessitates a deep understanding of
+the DFL system’s architecture, algorithms, and access to the
+communication channels. Tampering with gradients exchanged
+between clients and the server is a challenging task that
+requires careful execution to avoid detection [80]. Similarly,
+manipulating the training objective, such as modifying the loss
+function or optimization process, is also categorized as hard. It
+demands an in-depth understanding of the system’s algorithms,
+access to the training process, and the ability to modify the
+objective without disrupting the overall learning process.
+On the other hand, attacks such as evasion attacks and
+model inversion are easier to implement. These attacks can
+be implemented using existing knowledge and techniques
+[81]. Other attacks, including feature inference and Sybil
+attacks, are also categorized as easy to implement. In contrast,
+attacks such as membership inference, hijacking private keys,
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 9
+51% attacks, consensus attacks, and double spending are
+challenging attacks [9], [82]. These attacks require advanced
+knowledge, sophisticated attacks, and access to specific com-
+ponents or mechanisms of the DFL system. Implementing
+them successfully is a complex and resource-intensive task.
+Furthermore, privacy poisoning attacks are not overly complex
+or technically challenging, leading to a medium level of ease of
+implementation. The process may involve tampering with the
+data blocks and ensuring the inclusion of personal information,
+but it does not require advanced technical skills or extensive
+resources. Moreover, finding security holes in SC is a complex
+task as these protocols are usually well-tested before release,
+and sophisticated technical skills are required to hack SC under
+this condition [83].
+2) Effectiveness of Attacks: In terms of attack effectiveness,
+the backdoor attack is classified as high. This attack has
+the potential to significantly impact the model’s predictions,
+compromising the integrity and reliability of the DFL system
+[70], [77], [78]. On the other hand, DoS/DDoS attacks are
+considered to have a moderate level of effectiveness. While
+they can disrupt the normal functioning of the system and
+cause temporary delays, their impact on the actual model
+parameters or the accuracy of the aggregated model may vary
+[79].
+Gradient manipulation and training objective manipulation
+attacks are both considered to have a moderate level of effec-
+tiveness. Tampering with gradients or modifying the training
+objective can potentially influence the learning process and
+impact the accuracy of the aggregated model. However, their
+success depends on the robustness of the DFL system and the
+defense mechanisms in place [80].
+Evasion attacks and model inversion attacks are also con-
+sidered to have a moderate level of effectiveness [81]. Their
+impact on the overall model performance may be limited
+depending on the effectiveness of the defense mechanisms.
+Membership inference attacks, on the other hand, are classified
+as having a high level of effectiveness. Successfully inferring
+membership information about specific individuals participat-
+ing in the DFL system can have severe privacy implications.
+Attacks targeting the blockchain aspect of DFL, such as
+hijacking private keys, 51% attacks, consensus attacks, Sybil
+attacks, double spending, and routing attacks, are generally
+considered to have a high level of effectiveness [82]. These
+attacks have the potential to compromise the security, integrity,
+and trust of the DFL system, depending on the specific
+vulnerabilities and defense mechanisms in place. Moreover,
+privacy poisoning attacks can have a moderate impact on
+compromising the privacy of participants in the DFL system.
+While the effectiveness of privacy poisoning attacks is not as
+high as some other attacks, it still poses a significant risk to the
+privacy of participants and the overall integrity of the system.
+In addition, exploiting the vulnerabilities of SC can lead to
+losing digital trust and massive financial loss. For instance,
+reports indicate that crypto investors nearly lost four billion
+dollars to hackers in 2022.
+3) Defensibility: Backdoor attacks involve inserting ma-
+licious behavior into the training data or model, making
+it challenging to detect and defend against. Detecting and
+mitigating backdoor attacks often require advanced techniques
+and rigorous model verification [84], [85].
+DoS/DDoS attacks are classified as moderately defensible.
+While it may be challenging to completely prevent DoS/DDoS
+attacks, there are various mitigation strategies available, in-
+cluding anomaly detection. Such methods can reduce the
+impact of DoS/DDoS attacks and keep the system operational
+[86]–[88].
+Defending against gradient manipulation and training ob-
+jective manipulation attacks is also categorized as moderately
+defensible. Implementing techniques like DP, robust aggre-
+gation algorithms, and secure communication protocols can
+enhance the system’s resilience against these attacks [80], [89].
+However, the effectiveness of the defense mechanisms may
+vary based on the sophistication of the attack and the quality
+of the defense techniques.
+Evasion attacks and model inversion attacks are considered
+moderately defensible. Privacy-preserving techniques, such as
+DP or SMC, can help protect against these attacks [89], [90].
+However, achieving strong defenses requires careful design
+and implementation, considering factors like attack vectors and
+data sensitivity.
+Defending against membership inference attacks is classi-
+fied as challenging due to the difficulty of protecting indi-
+vidual privacy in the FL setting. Advanced privacy protection
+techniques, such as privacy amplification and enhanced model
+aggregation protocols, are needed to effectively mitigate the
+risk of membership inference attacks [91], [92].
+Regarding attacks on the blockchain aspect of DFL, the
+defensibility levels vary depending on the specific attack [82].
+Hijacking private keys, 51% attacks, and double spending
+attacks are challenging to defend against due to the vulnerabili-
+ties they exploit in the blockchain infrastructure. Implementing
+robust consensus mechanisms, multi-factor authentication, and
+encryption can enhance the defensibility against these attacks.
+Defending against consensus attacks, Sybil attacks, and rout-
+ing attacks requires strong identity management systems, net-
+work monitoring, and reputation-based mechanisms. Defend-
+ing against privacy poisoning attacks requires a combination of
+technical, legal, and regulatory measures, making it of medium
+difficulty in terms of defensibility. In addition, ensuring the
+security and integrity of SC has a moderate level of difficulty
+since it requires sophisticated code review and rigorous testing
+to identify and eliminate potential security holes and flaws.
+V. D EFENSE MECHANISMS
+Various defense mechanisms are proposed to fortify DFL
+against privacy and performance-related threats. While this
+section reviews the literature on DFL defense mechanisms,
+their characteristics are summarized in Table IV. In addition,
+Table V specifies mechanisms that each reviewed DFL method
+employs.
+A. Privacy Preserving
+Despite the wide diversity of previous efforts on safeguard-
+ing FL and blockchain privacy, suggested methods typically
+fall into one of these three categories: 1) Homomorphic
+10 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+TABLE IV
+CHARACTERISTICS AND APPLICABILITY OF DEFENSE MECHANISMS . THE FINAL COLUMN DENOTES THE SPECIFIC TYPES OF ATTACKS FOR WHICH EACH
+DEFENSE MECHANISM IS SUITABLE .
+Defense mechanism Description Weakness Used against
+Homomorphic Encryption Encrypts parameters Computational overhead Attacks on privacy
+SMC Protects data with multiparty computation Communication overhead Attacks on privacy
+Differential Privacy Perturbs parameters with noise Accuracy loss Attacks on privacy
+Anomaly Detection Monitors updates to detect abnormalities Backdoors can bypass it Untargeted poisoning
+Robust Aggregation Safeguards global aggregation against adversaries Limiting assumptions Poisoning attacks
+Pruning Randomly drops neurons from global model Computational overhead Backdoor attacksPerformance loss
+TEE A secure ecosystem for maintaining digital trust Limited memory size White box attacks
+Zero-Knowledge Proofs Uses unconnected bits of information to hide data
+Computational overhead Privacy attacksCommunication overhead Poisoning attacksComplex implementation
+Knowledge Distillation Performs TL to indirectly train a smaller model Computational overhead Privacy attacks
+Not a stand-alone defense Poisoning attacks
+Regularization Prevents global model from overfitting Sensitivity to hyperparameters Privacy attacks
+Computational overhead Poisoning attacks
+Blockchain Secures DFL communications Computational overhead Poisoning attacksBlockchain security issues
+Encryption (HE), 2) Secure Multiparty Computation (SMC),
+and 3) DP. The following discussion goes through each of
+these groups.
+1) Homomorphic Encryption: By processing on cyphertext,
+HE is commonly used to secure the learning process. Clients
+can use HE to perform arithmetic operations on encrypted
+data (i.e., ciphertext) without having to decode it. HE has
+three major variations that differ in arithmetic complexity and
+flexibility, namely full, partial, and substantial HE [96].
+Fully HE is capable of doing arbitrary calculations on the
+encrypted data [97]. This is while partially HE can only
+execute one operation (e.g., addition or multiplication), and
+substantially HE can do several operations [98]–[100]. The
+latter, on the other hand, has a restricted amount of additions
+and multiplications. While full HE offers greater flexibility,
+it is inefficient when compared to other forms of HE [97].
+As an example, [65] shows that swarm learning updates are
+encrypted using partial HE to defend DFL against inference
+attacks.
+Despite the benefits of HE, executing arithmetic on the
+encrypted integers increases the memory and processing time
+costs. Moreover, non-linear estimations in statistical models
+demand approximating polynomials which make it important
+to find a balance between utility and privacy [101], [102]. In
+[103], for instance, additively HE is used to secure distributed
+learning by securing model changes and maintaining gradient
+privacy. Another example is [25], which uses an additively
+homomorphic architecture to defeat honest-but-curious adver-
+saries using federated logistic regression on the encrypted
+vertical FL data. However, the overburdening of the system
+with additional computational costs is a typical downside of
+such systems.
+2) Secure Multiparty Computation: Secure Multiparty
+Computation (SMC) [104], is a distributed cryptography tech-
+nique in which several entities participate in the estimation
+of a function. The distinct feature of SMC is securing each
+participant’s data by creating a set of random values that are
+not equal to the participant’s data, and sending them to the rest
+of the parties for local calculation of the function. The outputs
+of these functions then will be averaged to obtain the desired
+estimation. In this scheme, the data on the participant’s side
+is meaningless, and the function estimations are only usable
+once they are averaged. For instance, SMC was used in [105]
+for private model training. It is worth mentioning that SMC is
+followed by excessive communication and computational cost.
+It has been also mentioned that SMC is best to be coupled with
+DP to secure the communications [89], [90].
+In conclusion, SMC usage in large-scale DFL could be
+inefficient due to the dramatic rise in communication and
+processing costs. Secondly, encryption-based solutions cor-
+responding to these functions must be properly defined and
+implemented [106], [107]. Finally, all cryptography-based
+protocols preclude an audition phase of the received updates
+by the shared model, hence, leaving holes for rogue users to
+exploit.
+3) Differential Privacy: The idea of DP is to inject random
+noise into the generating updates so that the data interpretation
+becomes infeasible for malicious entities. DP is primarily
+used to safeguard DFL communications against privacy attacks
+(e.g., inference attacks); however, the literature also shows that
+DP can be also beneficial against data poisoning attacks as
+these attacks are usually designed based on the communicated
+gradients [108]–[110]. Biscotti [5] couples DP with a secure
+aggregation technique [111] to safeguard DFL systems against
+poisoning and inference attacks. Another report shows the
+effectiveness of pruning-based DP in safeguarding horizon-
+tal DFL systems [56]. DP in [54] is implemented through
+perturbing local gradients using the exponential mechanism
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 11
+TABLE V
+SECURITY ANALYSIS OF STATE -OF-THE -ART DFL METHODS . ALL MODELS ARE ROBUST AGAINST SPF.#,G #, AND DENOTE NOT ROBUST , PARTIALLY
+ROBUST , AND ROBUST , RESPECTIVELY . ✓AND × INDICATE WHETHER THE SPECIFIED TECHNOLOGY IS USED OR NOT . ATTACKS OR TECHNOLOGIES THAT
+ARE NOT INCLUDED IN THIS TABLE ARE NOT STUDIED IN THE LISTED METHODS .
+Methods References Blockchain Encryption Clients Data poisoning Model poisoning Inference
+BindaaS [53] ✓ × Honest # # #
+PIRATE [55] ✓ × Semi-honest # G #
+BAFFLE [48] ✓ × Dishonest # 
+BFLC [52] ✓ × Semi-honest # #
+LearningChain [54] ✓ DP Dishonest G # G # 
+Biscotti [5] ✓ DP Dishonest G # 
+Blade-FL [51] ✓ DP Honest # # G #
+BEAS [56] ✓ DP Dishonest 
+Swarm Learning [64] ✓ × Dishonest # # #
+SL+HE [65] ✓ HE Dishonest # # 
+BrainTorrent [57] × × Honest # # #
+P2P-FL [50] × × Honest # # #
+ReputationDFL [58] ✓ × Dishonest G # G # #
+BlockFLA [59] ✓ × Dishonest G # G # #
+DFedForest [60] ✓ × Dishonest G # G # #
+Bift [61] ✓ × Dishonest G # G # #
+Verifiable DFL [63] ✓ × Semi-honest # # 
+DFL for Healthcare [93] ✓ DP, SMC Semi-honest # # 
+FLChain [94] ✓ × Honest # # #
+VFChain [95] ✓ × Semi-honest # # G #
+[112] and a predefined probability density function before
+uploading them into the blockchain and broadcasting them
+across the DFL network. Similarly, Blade-FL [51] adds noise
+to the gradients prior to the encapsulation phase, albeit using
+a Gaussian distribution.
+In contrast to HE and SMC whose main disadvantage was
+communication overhead, DP has a lower computational cost
+and does not overburden the system in this sense. Instead, DP
+comes at the cost of deteriorating the model quality. This is
+mainly because the injected noise can potentially add up to the
+noise within the constructed model. Another issue of concern
+in conventional DP is the cumulative privacy loss resulting
+from iterative training processes that utilize local data from
+multiple individuals or sources. These iterations are crucial
+for enhancing the accuracy and performance of trained models.
+However, with each iteration, a certain degree of privacy loss
+is introduced, and this loss accumulates over time, potentially
+reaching a significant level. Researchers have dedicated efforts
+to address this problem by exploring various approaches,
+including subsampling [91] and privacy amplification by it-
+eration [92]. These techniques aim to mitigate cumulative
+privacy loss and improve the overall privacy guarantees of DP
+schemes. Since these methods derive a tight upper bound of
+cumulative privacy loss, they can also be applied to preserve
+model utility even in cases where the gradients are perturbed
+by noise. Moreover, DP provides resistance to poisoning at-
+tempts due to its group privacy trait. As a result, as the number
+of attackers increases, this defense will reduce significantly.
+As mentioned before, all privacy-preserving methods have
+a set of advantages and disadvantages, and thus, there is
+no perfect alternative for DP. In other words, DP, HE, and
+SMC each result in a different privacy-utility trade-off. As
+a solution, hybrid approaches can be implemented to build
+privacy protocols that are more robust than using only one of
+these methods [113], [114]. As an example, SMC is combined
+with DP to balance the trade-off between them [114]. This
+combination offsets excessive noise injection when the number
+of clients is growing while preserving the desired rate of trust.
+Gaussian DP is a specific case within the functional DP
+(f-DP) framework, which characterizes privacy through hy-
+pothesis testing [115]. In f-DP, a randomized algorithm is
+considered to satisfy privacy if the difficulty of distinguishing
+between two neighboring datasets (quantified by a trade-
+off function) is element-wise larger than a convex and non-
+increasing function f. When this function f is constructed
+using two Gaussian distributions, the resulting form of f-
+DP is termed Gaussian Differential Privacy. In other words,
+Gaussian DP defines privacy guarantees by examining the
+distinguishability of neighboring datasets through a hypoth-
+esis testing approach, with the specific choice of a trade-off
+function derived from Gaussian distributions. This provides a
+mathematical and analytical framework for evaluating privacy
+in the context of private data analysis. For instance, [116]
+applies Gaussian DP in an FL system to provide record-level
+12 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+privacy guarantees for each client. Building upon the ability of
+this approach to handle composition and subsampling, [117]
+extends the work to apply DP to SGD and Adam [118]
+optimizers.
+In the context of applying DP to FL, two privacy notations,
+namely user level and instance level privacy, can be found in
+the literature. User-level privacy in DP ensures that clients’
+data remains private and the privacy of the global model
+remains intact, even if an adversary removes a client or its data
+from the aggregation process [119]. Additionally, adversaries
+are unable to determine whether a client has participated in the
+training. On the other hand, employing DP at the record level
+offers privacy guarantees for each individual record within
+a client’s data, protecting them against potential adversaries
+[116]. Instance-level DP is often perceived as offering a rela-
+tively weaker privacy guarantee, as adversaries may potentially
+determine whether a user participated in the training or not.
+However, there are cases where discerning user participation
+is not crucial, and the primary concern is maintaining data
+privacy. Considering the trade-off between privacy and utility
+in differential privacy, it is prudent to adopt instance-level
+privacy in such scenarios to achieve improved performance
+while avoiding overly stringent privacy constraints.
+DP can be centralized, local, or distributed. In centralized
+DP, the noise addition is performed via a server, which makes
+it impractical in DFL. On the other hand, local [120] and
+distributed DP [121], [122] both assume that the aggregator is
+not trusted which perfectly complies with the DFL paradigm.
+In the local variant, participants inject noise in their estimated
+gradients before sharing them over the blockchain. However,
+research on local DP indicates its inability to provide a
+privacy guarantee on large-scale and heterogeneous models
+with numerous parameters [123], [124]. In DFL, the injected
+noise should be calibrated to ensure successful DP. Despite
+the appealing security qualities of local DP, its practicality
+becomes questionable when dealing with an immense number
+of users.
+Distributed DP combines cryptographic techniques to pro-
+vide the benefits of both local and centralized DP without
+compromising the clients’ privacy [121], [125]. As a result,
+it avoids putting faith in any server and is more effective in
+that sense. Decentralized DP, in theory, has the same benefit
+as the centralized variant because the overall quantity of noise
+is similar for them. The concept of distributed DP alludes to
+the notion that the required amount of noise is derived from
+several individuals [122].
+B. Model Robustness
+Defenses are classified into two types: proactive and reac-
+tive. Proactive defense is a low-cost method of anticipating
+attacks and associated consequences. The reactive defense
+operates by detecting an invasion and taking preventative
+steps. In the production environment, reactive defense is often
+deployed as a patch-up. DFL presents multiple additional
+attack surfaces throughout training, resulting in complicated
+and unique countermeasures. In this part, we will look at
+some of the most common types of DFL defensive tactics
+and investigate their usefulness and limits.
+1) Anomaly Detection: Anomaly detection methods have
+a long history in real-time identification of data attacks in
+intelligent systems [126]. In centralized FL, anomaly detection
+is often performed on the server to identify malicious updates
+that can lead to model or data poisoning [87], [88]. It is
+worthwhile to mention that this approach usually works best
+against untargeted attacks. In the DFL paradigm, however,
+anomalies can take place either due to fraudulent transactions
+or changes in blockchain networks such as network division
+and blockchain fork. Each of these issues is separately studied
+in the literature and there is no anomaly detection framework
+designed to handle both. For instance, [127] proposes a fast-
+paced detection scheme for monitoring transactions using a
+subgraph-based approach. The designed detection method is
+optimized for parallel processing GPU acceleration. On the
+other hand, another work, [128], designs a distributed anomaly
+detection scheme, called BAD, to combat eclipse attacks in
+blockchain networks by re-connecting unauthorized forks to
+the P2P network.
+The majority of the anomaly detection methods for FL se-
+curity are proposed with respect to the centralized architecture
+of the FL [88], [129]–[131], and anomaly detection in DFL
+is only studied in a limited number of works. As an example,
+BEAS [56] employs two anomaly detection protocols, namely
+Multi-KRUM [87] and FoolsGold [132] to detect poisoning
+attacks and identifying Sybil groups (i.e., group of malicious
+nodes coordinating a cyber-attack), respectively. The former
+monitors change in variance or performance of generated
+gradients with respect to the majority of updates. The latter, on
+the other hand, detects Sybil groups based on the correlation
+between the generated updates, as it is expected for malicious
+nodes to generate highly similar gradients. Anomaly detection
+in high-dimensional space poses challenges, leading some
+detectors to suggest using dimensionality reduction to make
+monitoring easier. However, reducing the dimensionality size
+may result in information loss [133], even with advanced
+techniques preserving data characteristics.
+2) Robust Aggregation: The aggregation algorithm used in
+an FL system should tolerate communications disturbances,
+client dropout, and incorrect model updates on top of hostile
+participants [134]. Extensive research has been dedicated to
+advancing robust aggregation in centralized FL [135], [136].
+Similarly, in DFL networks, the security of the aggregation
+phase is of paramount importance. Under a DFL paradigm,
+the aggregation phase is mainly secured by employing the
+same techniques used in FL in combination with the consensus
+mechanism of the utilized blockchain scheme [61]. These
+protocols (e.g., PoW, PoS, SC) control which nodes can
+participate in the model aggregation phase for both gener-
+ating updates and aggregating parameters. On the downside,
+many of the advanced Byzantine-robust aggregations rely on
+assumptions that are either unrealistic or incompatible within
+the context of FL [7].
+3) Pruning: Even though pruning is not specific to DFL
+and can be applied to any neural network structure, it can
+help in eliminating backdoors. The idea of pruning is to
+drop some neurons in order to enhance the efficiency and
+accuracy of the network. However, this feature makes the
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 13
+parameter usage somewhat unpredictable for attackers which
+complicates injecting backdoors into a neural network since
+inactive neurons will be removed eventually in the network.
+While pruning has been mainly studied for FL [137], [138],
+current literature on pruning under a DFL paradigm is very
+limited [56]. In particular, BEAS [56] makes use of gradient
+pruning [74] in DFL to facilitate DP and complicating model
+poisoning for attackers in the system. Nevertheless, since these
+techniques are mainly used at the edge of the network, most
+pruning approaches should be adaptable to DFL as well.
+Pruning comes with a set of drawbacks. One drawback is the
+potential loss of model capacity, resulting from the removal of
+connections or components. Another concern is the sensitivity
+of pruning to initialization and training, necessitating careful
+fine-tuning and experimentation for optimal outcomes. More-
+over, the pruned model may struggle to generalize effectively
+to new data, limiting its real-world applicability. Lastly, the
+computational overhead increases due to the additional re-
+sources and time required during the pruning and retraining
+stages. Considering these factors is vital when assessing the
+viability of pruning as a defense mechanism against backdoors.
+4) Trusted Execution Environment: The blockchain back-
+bone of DFL requires the data to be replicated on each
+node which makes it challenging to keep smart contracts
+confidential. TEE (Trusted Execution Environment), on the
+other hand, is a tamper-resistant ecosystem that can be used to
+maintain digital trust between nodes of a distributed network
+[17]. TEE is often referred to as a secure and isolated part of
+the processor that requires all codes and data signatures to be
+verified with respect to the designer’s expectations. The valid-
+ity of a participating device in a TEE Authentication should be
+checked by the connected service with which it is attempting
+to enroll. Until the matching party provides a message, the
+status of code execution stays hidden. The execution route
+of the code cannot be changed until it takes explicit input
+or a validated interruption. Data stored on and processed by
+participants is safe, and interactions between various parties
+are carried out in a secure manner. The TEE is in charge
+of all data access privileges. Cryptographic technologies are
+used to secure TEE communications. Only the TEE secure
+environment stores, maintains, and uses private and public
+encryption keys. The TEE can show a remote client what code
+is presently being executed as well as the starting state. TEE
+can aid in resolving a key challenge for FL security since it
+is becoming progressively important in securing the central
+server and clients against hackers and preventing data theft.
+TEE is coupled with FL to safeguard against algorithmic
+attacks [139], [140]. TEE can hide model parameters on local
+devices so that the model is not accessible to the attacker.
+Under this condition, the attacker is only able to launch black
+box attacks on the system. Nevertheless, TEE often suffers
+from a limited memory size, that is only a limited part of the
+model can be secured with this approach [140]. It has been
+also suggested that TEE can secure smart contract data in a
+blockchain which is the main vulnerability of this architecture
+[141]. Theoretically, the same concept can be applied to DFL.
+However, current literature lacks an experimental study on the
+integration of DFL and TEE.
+5) Zero-Knowledge Proofs: The origin of zero-knowledge
+proofs goes back to the mid-1980s [142]. This cryptographic
+approach allows a verification process that does not involve
+data exchange between parties [143]. This process often in-
+volves using unconnected bits of information to keep data
+private during the verification.
+As an example, zero-knowledge proofs have the potential
+to be utilized in DFL to verify the authenticity of the features
+used by clients for training and generating updates. While
+zero-knowledge proofs offer a promising avenue for enhancing
+secure update monitoring, additional research is necessary to
+identify challenges in constructing and implementing their
+modules. Notably, zero-knowledge proof protocols generally
+maintain their performance regardless of the data volume.
+Zero-knowledge proofs offer advantages for enhancing se-
+cure update monitoring in DFL. However, their adoption
+also entails certain drawbacks. These include computational
+overhead due to resource-intensive operations, the complexity
+of implementation requiring meticulous attention to crypto-
+graphic techniques, potential scalability issues in large-scale
+DFL systems due to communication complexity, and the trust
+assumption associated with the setup phase [144].
+6) Knowledge Distillation: Knowledge distillation is a fun-
+damental algorithm in federated distillation [145]. The goal of
+knowledge distillation is to perform TL from a large teacher
+model ( T ) to a compact student model ( S) without sacri-
+ficing performance significantly. Smaller models have fewer
+parameters and are less susceptible to overfitting, making
+them more resilient against attacks. This increased resistance
+makes it more challenging for attackers to reverse-engineer
+or manipulate the model. Nonetheless, for certain threats
+such as backdoor attacks, knowledge distillation alone may
+not be directly effective, as these attacks typically involve
+modifying the training data or model parameters to embed
+a hidden trigger. However, knowledge distillation can be used
+as part of a broader defense strategy to mitigate the impact
+of backdoor attacks. For instance, reference [85] mitigates
+backdoor attacks by utilizing knowledge distillation in deep
+neural networks. This approach independently fine-tunes T
+on a clean subset and uses it to clean backdoored S. To do so,
+this method tries to align intermediate-layer attention in S with
+that of T . Another example trains a T ensemble on disjoint
+training subsets and trains S based on aggregated noisy voting
+among T models [124]. The goal of this approach is to
+provide a privacy guarantee for training data. In DFL, this idea
+translates into sharing the knowledge of a model rather than
+the parameters which improves FL’s robustness against both
+poisoning and privacy attacks. In addition to the mentioned
+security advantages, knowledge distillation also results in com-
+munication and computation efficiency in DFL. Exchanging
+model parameters becomes burdensome when communication
+resources are limited, especially for contemporary big deep
+neural networks. In this sense, federated distillation [123] is
+an appealing FL option since it only transmits model outputs
+which are often considerably less in size than the model sizes.
+7) Regularization: In DFL, the computational model that
+is being distributively updated is most likely a DL structure.
+One approach to mislead this model is to make it overfit
+14 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+by introducing malicious samples which may in turn lead
+to membership inference. Regularization techniques such as
+L2 regularizer [146] and dropout [147] can eliminate the
+effect of such malicious samples to a great extent. Reference
+[148] designs a semidefinite relaxation method that generates
+a differentiable certificate for network robustness and opti-
+mizes it alongside network parameters to encourage robustness
+against all attacks. Furthermore, determining suitable hyper-
+parameters, such as regularization strength, for regularization
+techniques can be a difficult task, and incorrect choices may
+yield undesirable results. Moreover, the use of certain regular-
+ization methods with intricate terms or penalties can introduce
+considerable computational complexity, especially in scenarios
+involving extensive datasets or intricate models, resulting in
+prolonged training durations.
+VI. V ERIFIABLE DFL
+Defense mechanisms reviewed in the previous section
+mainly combat an adversary after a malicious attack is
+launched by an intruder. Nevertheless, another approach to
+combat these threats is to prevent malicious parties to take
+part in the training process. A DFL system that can verify the
+trustworthiness of its clients is called verifiable.
+A DFL system is considered verifiable if clients of a
+network can prove to each other that the given task has been
+carried out without compromising privacy [149]. Security,
+transparency, and automation of blockchain can enhance the
+verifiability of DFL [93] which in turn prevent malicious activ-
+ities. In this structure, some nodes are in charge of generating
+updates and training the model (i.e., trainers) and groups of
+participants verify the generated updates (i.e., workers) with
+respect to consensus protocol. If the update is verified, the
+worker who completes this task first will create a new block.
+Then, if the majority of the workers approve the content of the
+created block, it will be appended to the chain. At this point,
+DFL clients can update their models using this new block of
+information. This process is repeated periodically to keep the
+DFL model up to date.
+A. Trustable DFL Trainers
+A vulnerability of DFL systems is that dishonest trainers
+can upload maliciously crafted updates to the blockchain. For
+instance, BlockFL [150] verifies the submitted updates through
+a random selection of workers before letting the update take
+effect. In BlockFL, each client is associated with a random
+worker who is rewarded when evaluating the updates prior to
+the aggregation. The evaluation criteria are designed based on
+the relationship between the data size and the elapsed time for
+generating the update.
+Another approach for verifying trainers is to use proof of
+correctness. Examples of this are presented in [94], [151],
+where produced parameters are paired with their proof of
+correctness which is used by registered workers for deter-
+mining the approved updates. This approach uses verifiable
+random functions [151] or reliability ranking [94] to select
+a worker whose aggregation results will be appended to the
+blockchain. The trainer’s reliability, which is an indicator of its
+performance, will affect its chance to take part in the training
+process thereafter.
+B. Trustable DFL Workers
+Assuming that all trainers are trustworthy, the aggregated
+model could still be compromised if the responsible worker
+for the model aggregation is unreliable, that is, it does not
+follow the defined protocol. VFChain [95] addresses this issue
+by using trainer signatures that are appended to the uploaded
+block by the trainer. To verify the aggregated model by the
+responsible worker, a committee is randomly selected among
+other workers to evaluate the aggregated model with respect
+to the verifying contract. The members of this committee are
+continuously updated in each training round. The blockchain
+preserves signatures and their corresponding aggregated mod-
+els of each training round which makes all records tamper-
+resistant and transparent to all network members. It is worth
+mentioning that this structure is only compatible with semi-
+honest trainers.
+VII. F UTURE RESEARCH DIRECTIONS
+Despite the advancements of DFL in the past five years,
+this paradigm is fairly new and still has a lot of potential to
+be improved. From a security standpoint, many of the available
+countermeasures in the literature are either studied for FL or
+blockchain, and their effectiveness in DFL remains unclear.
+Here, we outline future development requirements that we
+believe will be promising for DFL in this sense.
+A. Weakness of Privacy-Preserving Techniques
+As mentioned before, privacy-preserving techniques often
+trade excessive computational burden for enhancing privacy
+(e.g., HE, SMC). Furthermore, the implementation of crypto-
+graphic techniques such as SMC is sensitive and can imperil
+privacy if not defined properly. DP, on the other hand, can
+affect the accuracy of the aggregated model since the utilized
+noise can leak into the model. These issues are beside the
+fact that the audition phase in these techniques can lead to
+security holes. Hence, despite the history of privacy-preserving
+techniques, they all have imperfections that require further
+research and adaptation to the DFL paradigm.
+Addressing these challenges requires ongoing research and
+adaptation of privacy-preserving techniques to suit the specific
+requirements of DFL. Developing optimized implementations
+of cryptographic methods, such as SMC, can help alleviate
+the computational overhead and address sensitivity concerns.
+Paying attention to secure parameter configurations and robust
+cryptographic protocols is essential to minimize privacy risks.
+Exploring advanced noise reduction techniques within DP can
+strike a balance between preserving privacy and maintaining
+the accuracy of the model [116], [123]. Robust auditing
+mechanisms need to be established to ensure the security of
+privacy-preserving techniques and safeguard against potential
+vulnerabilities [94], [95]. Moreover, investigating hybrid ap-
+proaches that integrate multiple privacy-preserving techniques
+can offer a compromise between privacy and computational
+efficiency [93].
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 15
+Continued exploration and refinement of privacy-preserving
+techniques in the DFL domain will enhance privacy and
+security while minimizing the impact on computational per-
+formance. This ongoing research and innovation will pave the
+way for more effective and privacy-aware DFL systems.
+B. Optimizing Defense Mechanism Deployment
+Devising defense mechanisms in DFL presents specific
+challenges that need to be addressed. One key challenge is the
+requirement for additional computational power, which may
+not always be feasible, particularly in resource-constrained
+environments like mobile networks [152]. The limited com-
+putational resources available can pose limitations on the
+implementation of defense mechanisms.
+Another challenge is the diverse nature of threats in DFL.
+Different threats often require different countermeasures. De-
+signing a comprehensive defense mechanism that addresses
+a wide range of threats can be complex and challenging.
+It requires analyzing various threat models, understanding
+their unique characteristics, and developing tailored defense
+strategies accordingly.
+When considering DFL deployed on blockchain, resource
+and computational constraints specific to blockchain systems
+must also be taken into account [153], [154]. The scalability
+of defense mechanisms becomes a critical aspect to consider.
+Strategies that optimize smart contract execution or leverage
+off-chain computations can help ensure efficient operation
+within the resource constraints of blockchain platforms.
+Continuous evaluation, benchmarking, and improvement of
+existing defense mechanisms are vital. The field of defense
+mechanisms in DFL is dynamic, with emerging threats and
+advancements in technology. Regular evaluation and improve-
+ment are necessary to keep up with evolving challenges and
+maintain effective protection.
+Overall, addressing the challenges of additional com-
+putational power, diverse threats, resource constraints in
+blockchain, and the optimal deployment of defense mecha-
+nisms are critical areas for further research and development
+in the field of DFL. By tackling these challenges and exploring
+the proposed solutions, researchers can advance the field and
+enhance the security and resilience of DFL systems.
+C. Blockchain-Related Security Issues
+The decentralization and traceability offered by DFL
+introduce unique challenges related to blockchain-related
+threats. These threats specifically exploit the structure of
+the blockchain, posing risks to the overall security of DFL
+systems. Consequently, there is a need for research and devel-
+opment aiming at creating more secure blockchain structures
+that can enhance the resilience of DFL ecosystems against
+these attacks.
+One key challenge is the susceptibility of DFL to cyber-
+attacks that target the underlying blockchain infrastructure.
+Adversaries may attempt to manipulate or tamper with the
+blockchain, compromising the integrity and reliability of the
+system. This poses a significant risk to the confidentiality
+and privacy of participants’ data in DFL. To address these
+challenges, research efforts should focus on the development
+of more secure blockchain structures tailored to the specific
+requirements of DFL. This involves exploring techniques such
+as improved consensus mechanisms, advanced cryptographic
+protocols, and enhanced smart contract design [155]. These so-
+lutions aim to bolster the security of the blockchain layer, mit-
+igating the vulnerabilities that can be exploited by malicious
+actors. Additionally, advancements in blockchain technology,
+such as the integration of privacy-preserving techniques and
+zero-knowledge proofs, can contribute to building a more
+attack-resilient DFL ecosystem. By leveraging techniques that
+enhance data privacy and confidentiality, DFL systems can
+better withstand attacks and protect sensitive information [5],
+[56], [93]. Furthermore, the development of robust monitoring
+and auditing mechanisms is crucial for detecting and mitigat-
+ing blockchain-related threats in DFL. Implementing effective
+monitoring systems can help identify suspicious activities
+and ensure the integrity of the blockchain [94]. Auditing
+mechanisms can verify the correctness and security of the
+system, providing transparency and accountability in DFL
+deployments.
+D. Heterogeneity of Decentralized Federated Learning
+DFL convergence in a distributed ecosystem (e.g.,
+blockchain) is not guaranteed when various clients have di-
+verse computation power (i.e., heterogeneous users). Limited
+processing power and poor connectivity can delay the training
+and communication of some nodes, delaying the global aggre-
+gation. Disregarding this heterogeneity results deteriorates the
+overall efficiency of DFL training.
+The heterogeneity of clients in DFL not only poses chal-
+lenges to convergence and efficiency but also gives rise to
+security issues [156]. In an asynchronous DFL setting, where
+clients operate with different computation power and con-
+nectivity, ensuring secure aggregation becomes challenging.
+Asynchronous DFL is not compatible with secure aggregation
+protocols because all clients need to be incorporated in the
+aggregation step when using secure aggregation. This also
+limits the ability to perform centralized or distributed DP.
+Consequently, the use of local DP techniques becomes the
+viable option in asynchronous DFL scenarios, potentially
+compromising the level of privacy protection and increasing
+the risk of information leakage during the aggregation process.
+These security concerns highlight the need for innovative
+approaches that strike a balance between achieving privacy-
+preserving aggregation and accommodating the heterogeneity
+of clients in DFL [157]. By exploring novel cryptographic
+techniques, adaptive privacy mechanisms, and secure com-
+munication protocols, it is possible to address the security
+challenges that arise from the heterogeneity of DFL and ensure
+the confidentiality, integrity, and privacy of the FL process
+[158], [159].
+E. Challenges in Verifiable Decentralized Federated Learning
+Joining a DFL network requires a set of verifiers to evaluate
+the trustworthiness of the joining party. Since the joining party
+will not disclose their information for privacy reasons, the
+16 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+evaluation process often involves monitoring the performance
+of the joining party in the training process. Nevertheless, this
+evaluation scheme is not efficient as it exhausts computational
+and communication resources. Another challenge in this do-
+main is to gain insight into the misbehavior of clients based
+on the history of their behavior. It is important to discover
+how the verification results can be employed to facilitate this
+task.
+One possible solution is to employ privacy-preserving tech-
+niques during the trust evaluation process [63], [64]. Tech-
+niques such as SMC or HE can enable verifiers to evaluate the
+performance and trustworthiness of the joining party without
+directly accessing their sensitive information. This way, pri-
+vacy is maintained while still obtaining the necessary insights
+for trust evaluation. Furthermore, optimizing the evaluation
+process can enhance its efficiency [95]. Implementing tech-
+niques that reduce the computational and communication over-
+head, such as lightweight monitoring mechanisms or selective
+data aggregation, can help alleviate the resource exhaustion
+issues associated with the evaluation scheme. By carefully
+designing evaluation protocols and employing efficient algo-
+rithms, the overall efficiency of the process can be improved
+without compromising the evaluation’s effectiveness.
+In terms of addressing misbehavior based on historical
+behavior, leveraging machine learning techniques and anomaly
+detection algorithms can be beneficial. By analyzing the be-
+havior patterns and performance metrics of clients over time,
+it is possible to identify potential anomalies or deviations
+that may indicate misbehavior. Establishing a comprehensive
+system for tracking and monitoring client behavior, coupled
+with intelligent analysis and detection mechanisms, can aid
+in detecting and addressing misbehavior in a timely manner.
+Moreover, incorporating reputation systems within the DFL
+network can provide additional insights into the trustworthi-
+ness of participating clients [58], [160]. Verifiers can leverage
+the verification results and feedback from previous collabora-
+tions to build reputation scores for each client. These scores
+can serve as indicators of past behavior and can be used as a
+basis for decision-making during the trust evaluation process.
+VIII. C ONCLUSION
+The integration of FL and blockchain technologies has alle-
+viated the need for a server in the network. This is followed by
+a number of advantages such as efficient communication and
+the elimination of a single point of failure in the federation.
+While there are a limited number of surveys on the security
+analysis of FL, since the previous studies were all based on
+centralized architectures, further analysis is required to study
+the new paradigm of DFL from a security perspective. This
+work first reviewed common trends and preliminaries of FL
+and blockchain. It then performed a security analysis on DFL
+by identifying possible threats and defense mechanisms in
+such systems.
+REFERENCES
+[1] J. Kone ˇcn´y, H. B. McMahan, D. Ramage, and P. Richt ´arik, “Federated
+optimization: Distributed machine learning for on-device intelligence,”
+2016, arXiv:1610.02527.
+[2] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. y. Arcas,
+“Communication-Efficient Learning of Deep Networks from Decen-
+tralized Data,” in Proceedings of the 20th International Conference on
+Artificial Intelligence and Statistics , vol. 54, 2017, pp. 1273–1282.
+[3] C. Ma, J. Li, M. Ding, H. H. Yang, F. Shu, T. Q. S. Quek, and
+H. V . Poor, “On safeguarding privacy and security in the framework of
+federated learning,” IEEE Network, vol. 34, no. 4, pp. 242–248, 2020.
+[4] Y . Qu, L. Gao, T. H. Luan, Y . Xiang, S. Yu, B. Li, and G. Zheng,
+“Decentralized privacy using blockchain-enabled federated learning in
+fog computing,” IEEE Internet of Things Journal , vol. 7, no. 6, pp.
+5171–5183, 2020.
+[5] M. Shayan, C. Fung, C. J. M. Yoon, and I. Beschastnikh, “Biscotti:
+A blockchain system for private and secure federated learning,” IEEE
+Transactions on Parallel and Distributed Systems , vol. 32, no. 7, pp.
+1513–1525, 2021.
+[6] T. Li, A. K. Sahu, A. Talwalkar, and V . Smith, “Federated learning:
+Challenges, methods, and future directions,” IEEE Signal Processing
+Magazine, vol. 37, no. 3, pp. 50–60, 2020.
+[7] P. Kairouz et al., “Advances and open problems in federated learning,”
+2019, arXiv:1912.04977.
+[8] D. C. Nguyen, M. Ding, Q.-V . Pham, P. N. Pathirana, L. B. Le,
+A. Seneviratne, J. Li, D. Niyato, and H. V . Poor, “Federated learning
+meets blockchain in edge computing: Opportunities and challenges,”
+IEEE Internet of Things Journal , vol. 8, no. 16, pp. 12 806–12 825,
+2021.
+[9] D. Li, D. Han, T.-H. Weng, Z. Zheng, H. Li, H. Liu, A. Castiglione, and
+K.-C. Li, “Blockchain for federated learning toward secure distributed
+machine learning systems: a systemic survey,” Soft Computing, 2021.
+[10] D. Hou, J. Zhang, K. L. Man, J. Ma, and Z. Peng, “A systematic
+literature review of blockchain-based federated learning: Architectures,
+applications and issues,” in 2nd Information Communication Technolo-
+gies Conference, 2021, pp. 302–307.
+[11] C. Li, Y . Yuan, and F.-Y . Wang, “Blockchain-enabled federated learn-
+ing: A survey,” in IEEE 1st International Conference on Digital Twins
+and Parallel Intelligence, 2021, pp. 286–289.
+[12] Z. Wang and Q. Hu, “Blockchain-based federated learning: A compre-
+hensive survey,” 2021, arXiv:2110.02182.
+[13] M. Ali, H. Karimipour, and M. Tariq, “Integration of blockchain and
+federated learning for internet of things: Recent advances and future
+challenges,” Computers & Security , vol. 108, p. 102355, 2021.
+[14] L. Lyu, H. Yu, and Q. Yang, “Threats to federated learning: A survey,”
+2020, arXiv:2003.02133.
+[15] M. S. Jere, T. Farnan, and F. Koushanfar, “A taxonomy of attacks on
+federated learning,” IEEE Security Privacy , vol. 19, no. 2, pp. 20–28,
+2021.
+[16] L. Lyu, H. Yu, X. Ma, L. Sun, J. Zhao, Q. Yang, and P. S. Yu, “Privacy
+and robustness in federated learning: Attacks and defenses,” 2020,
+arXiv:2012.06337.
+[17] N. Bouacida and P. Mohapatra, “Vulnerabilities in federated learning,”
+IEEE Access, vol. 9, pp. 63 229–63 249, 2021.
+[18] V . Mothukuri, R. M. Parizi, S. Pouriyeh, Y . Huang, A. Dehghantanha,
+and G. Srivastava, “A survey on security and privacy of federated
+learning,” Future Generation Computer Systems , vol. 115, pp. 619–
+640, 2021.
+[19] P. Liu, X. Xu, and W. Wang, “Threats, attacks and defenses to federated
+learning: issues, taxonomy and perspectives,” Cybersecurity, vol. 5,
+no. 1, p. 4, 2022.
+[20] A. Qammar, A. Karim, H. Ning, and J. Ding, “Securing federated
+learning with blockchain: a systematic literature review,” Artificial
+Intelligence Review, 2022.
+[21] M. Kolp, P. Giorgini, and J. Mylopoulos, “A goal-based organizational
+perspective on multi-agent architectures,” in Intelligent Agents VIII .
+Berlin, Heidelberg: Springer Berlin Heidelberg, 2002, pp. 128–140.
+[22] S. C. Hayden, C. Carrick, and Q. Yang, “Architectural design patterns
+for multiagent coordination,” in Proceedings of the International Con-
+ference on Agent Systems , vol. 99, 1999.
+[23] Q. Yang, Y . Liu, T. Chen, and Y . Tong, “Federated machine learning:
+Concept and applications,” ACM Transactions on Intelligent Systems
+and Technology, vol. 10, no. 2, 2019.
+[24] M. Kantarcioglu and C. Clifton, “Privacy-preserving distributed mining
+of association rules on horizontally partitioned data,” IEEE Transac-
+tions on Knowledge and Data Engineering , vol. 16, no. 9, pp. 1026–
+1037, 2004.
+[25] S. Hardy, W. Henecka, H. Ivey-Law, R. Nock, G. Patrini, G. Smith, and
+B. Thorne, “Private federated learning on vertically partitioned data
+via entity resolution and additively homomorphic encryption,” 2017,
+arXiv:1711.10677.
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 17
+[26] Y . Liu, Y . Kang, C. Xing, T. Chen, and Q. Yang, “A secure federated
+transfer learning framework,” IEEE Intelligent Systems , vol. 35, no. 4,
+pp. 70–82, 2020.
+[27] Y . Wu, S. Cai, X. Xiao, G. Chen, and B. C. Ooi, “Privacy preserving
+vertical federated learning for tree-based models,” Proc. VLDB Endow.,
+vol. 13, no. 12, p. 2090–2103, 2020.
+[28] K. Cheng, T. Fan, Y . Jin, Y . Liu, T. Chen, D. Papadopoulos, and
+Q. Yang, “Secureboost: A lossless federated learning framework,”IEEE
+Intelligent Systems, vol. 36, no. 6, pp. 87–98, 2021.
+[29] Q. Li, Z. Wen, and B. He, “Practical federated gradient boosting
+decision trees,” Proceedings of the AAAI Conference on Artificial
+Intelligence, vol. 34, no. 04, pp. 4642–4649, 2020.
+[30] S. Nakamoto, “Bitcoin: A peer-to-peer electronic cash system,” Decen-
+tralized business review, p. 21260, 2008.
+[31] D. C. Nguyen, P. N. Pathirana, M. Ding, and A. Seneviratne,
+“Blockchain for 5g and beyond networks: A state of the art survey,”
+Journal of Network and Computer Applications , vol. 166, p. 102693,
+2020.
+[32] W. Wang, D. T. Hoang, P. Hu, Z. Xiong, D. Niyato, P. Wang, Y . Wen,
+and D. I. Kim, “A survey on consensus mechanisms and mining strategy
+management in blockchain networks,” IEEE Access, vol. 7, pp. 22 328–
+22 370, 2019.
+[33] X. Wang, X. Zha, W. Ni, R. P. Liu, Y . J. Guo, X. Niu, and K. Zheng,
+“Survey on blockchain for internet of things,” Computer Communica-
+tions, vol. 136, pp. 10–29, 2019.
+[34] “Ethereum.” [Online]. Available: http://ethereum.org
+[35] “Hyperledger.” [Online]. Available: https://www.hyperledger.org/
+[36] V . Buterin, “Ethereum: A next generation smart con-
+tract & decentralized application platform,” 2014. [Online].
+Available: https://ethereum.org/669c9e2e2027310b6b3cdce6e1c52962/
+Ethereum Whitepaper - Buterin 2014.pdf
+[37] E. Androulaki, A. Barger, V . Bortnikov, C. Cachin, K. Christidis,
+A. De Caro, D. Enyeart, C. Ferris, G. Laventman, Y . Manevich,
+S. Muralidharan, C. Murthy, B. Nguyen, M. Sethi, G. Singh, K. Smith,
+A. Sorniotti, C. Stathakopoulou, M. Vukoli ´c, S. W. Cocco, and
+J. Yellick, “Hyperledger fabric: A distributed operating system for
+permissioned blockchains,” in Proceedings of the Thirteenth EuroSys
+Conference, 2018.
+[38] J. Kang, R. Yu, X. Huang, S. Maharjan, Y . Zhang, and E. Hossain, “En-
+abling localized peer-to-peer electricity trading among plug-in hybrid
+electric vehicles using consortium blockchains,” IEEE Transactions on
+Industrial Informatics, vol. 13, no. 6, pp. 3154–3164, 2017.
+[39] Z. Li, J. Kang, R. Yu, D. Ye, Q. Deng, and Y . Zhang, “Consortium
+blockchain for secure energy trading in industrial internet of things,”
+IEEE Transactions on Industrial Informatics , vol. 14, no. 8, pp. 3690–
+3700, 2018.
+[40] H. Watanabe, S. Fujimura, A. Nakadaira, Y . Miyazaki, A. Akutsu,
+and J. Kishigami, “Blockchain contract: Securing a blockchain applied
+to smart contracts,” in IEEE International Conference on Consumer
+Electronics, 2016, pp. 467–468.
+[41] Z. Cui, F. XUE, S. Zhang, X. Cai, Y . Cao, W. Zhang, and J. Chen,
+“A hybrid blockchain-based identity authentication scheme for multi-
+wsn,” IEEE Transactions on Services Computing , vol. 13, no. 2, pp.
+241–251, 2020.
+[42] P. Vanhaesebrouck, A. Bellet, and M. Tommasi, “Decentralized Col-
+laborative Learning of Personalized Models over Networks,” in Pro-
+ceedings of the 20th International Conference on Artificial Intelligence
+and Statistics, vol. 54. PMLR, 2017, pp. 509–517.
+[43] W. Liu, L. Chen, and W. Zhang, “Decentralized federated learning: Bal-
+ancing communication and computing costs,” 2021, arXiv:2107.12048.
+[44] X. Lian, C. Zhang, H. Zhang, C.-J. Hsieh, W. Zhang, and J. Liu,
+“Can decentralized algorithms outperform centralized algorithms? a
+case study for decentralized parallel stochastic gradient descent,” in
+Advances in Neural Information Processing Systems , vol. 30, 2017.
+[45] Q. Yang, “Toward responsible ai: An overview of federated learning
+for user-centered privacy-preserving computing,” ACM Trans. Interact.
+Intell. Syst., vol. 11, no. 3–4, 2021.
+[46] C. Hu, J. Jiang, and Z. Wang, “Decentralized federated learning: A
+segmented gossip approach,” 2019, arXiv:1908.07782.
+[47] Z. Jiang, A. Balu, C. Hegde, and S. Sarkar, “Collaborative deep learn-
+ing in fixed topology networks,” in Advances in Neural Information
+Processing Systems, vol. 30, 2017.
+[48] P. Ramanan and K. Nakayama, “Baffle : Blockchain based aggre-
+gator free federated learning,” in IEEE International Conference on
+Blockchain, 2020, pp. 72–81.
+[49] A. Lalitha, S. Shekhar, T. Javidi, and F. Koushanfar, “Fully decentral-
+ized federated learning,” inThird workshop on Bayesian Deep Learning
+(NeurIPS), 2018.
+[50] A. Lalitha, O. C. Kilinc, T. Javidi, and F. Koushanfar, “Peer-to-peer
+federated learning on graphs,” 2019, arXiv:1901.11173.
+[51] J. Li, Y . Shao, K. Wei, M. Ding, C. Ma, L. Shi, Z. Han, and
+H. Poor, “Blockchain assisted decentralized federated learning (blade-
+fl): Performance analysis and resource allocation,” IEEE Transactions
+on Parallel and Distributed Systems , vol. 33, no. 10, pp. 2401–2415,
+2022.
+[52] Y . Li, C. Chen, N. Liu, H. Huang, Z. Zheng, and Q. Yan, “A blockchain-
+based decentralized federated learning framework with committee
+consensus,” IEEE Network, vol. 35, no. 1, pp. 234–241, 2021.
+[53] P. Bhattacharya, S. Tanwar, U. Bodkhe, S. Tyagi, and N. Kumar,
+“Bindaas: Blockchain-based deep-learning as-a-service in healthcare
+4.0 applications,” IEEE Transactions on Network Science and Engi-
+neering, vol. 8, no. 2, pp. 1242–1255, 2021.
+[54] X. Chen, J. Ji, C. Luo, W. Liao, and P. Li, “When machine learning
+meets blockchain: A decentralized, privacy-preserving and secure de-
+sign,” in IEEE International Conference on Big Data , 2018, pp. 1178–
+1187.
+[55] S. Zhou, H. Huang, W. Chen, P. Zhou, Z. Zheng, and S. Guo, “Pirate:
+A blockchain-based secure framework of distributed machine learning
+in 5g networks,” IEEE Network, vol. 34, no. 6, pp. 84–91, 2020.
+[56] A. Mondal, H. Virk, and D. Gupta, “BEAS: blockchain en-
+abled asynchronous & secure federated machine learning,” 2022,
+arXiv:2202.02817.
+[57] A. G. Roy, S. Siddiqui, S. P ¨olsterl, N. Navab, and C. Wachinger,
+“Braintorrent: A peer-to-peer environment for decentralized federated
+learning,” 2019, arXiv:1905.06731.
+[58] J. Kang, Z. Xiong, D. Niyato, Y . Zou, Y . Zhang, and M. Guizani,
+“Reliable federated learning for mobile networks,” IEEE Wireless
+Communications, vol. 27, no. 2, pp. 72–80, 2020.
+[59] H. B. Desai, M. S. Ozdayi, and M. Kantarcioglu, “Blockfla: Ac-
+countable federated learning via hybrid blockchain architecture,” in
+Proceedings of the Eleventh ACM Conference on Data and Application
+Security and Privacy , 2021, p. 101–112.
+[60] L. A. C. de Souza, G. Antonio F. Rebello, G. F. Camilo, L. C. B.
+Guimar˜aes, and O. C. M. B. Duarte, “Dfedforest: Decentralized fed-
+erated forest,” in IEEE International Conference on Blockchain , 2020,
+pp. 90–97.
+[61] Y . He, K. Huang, G. Zhang, F. R. Yu, J. Chen, and J. Li, “Bift:
+A blockchain-based federated learning system for connected and au-
+tonomous vehicles,” IEEE Internet of Things Journal , vol. 9, no. 14,
+pp. 12 311–12 322, 2022.
+[62] J. Chen, R. Monga, S. Bengio, and R. Jozefowicz, “Revisiting dis-
+tributed synchronous sgd,” in International Conference on Learning
+Representations Workshop Track, 2016, arXiv:1604.00981.
+[63] C. Fang, Y . Guo, J. Ma, H. Xie, and Y . Wang, “A privacy-preserving and
+verifiable federated learning method based on blockchain,” Computer
+Communications, vol. 186, pp. 1–11, 2022.
+[64] Warnat-Herresthal et al., “Swarm Learning for decentralized and con-
+fidential clinical machine learning,” Nature, vol. 594, no. 7862, pp.
+265–270, 2021.
+[65] L. Chen, S. Fu, L. Lin, Y . Luo, and W. Zhao, “Privacy-preserving
+swarm learning based on homomorphic encryption,” in Algorithms and
+Architectures for Parallel Processing . Cham: Springer International
+Publishing, 2022, pp. 509–523.
+[66] J. Han, Y . Ma, and Y . Han, “Demystifying swarm learning: A new
+paradigm of blockchain-based decentralized federated learning,” 2022,
+arXiv:2201.05286.
+[67] E. Hallaji, R. Razavi-Far, and M. Saif, Federated and Transfer Learn-
+ing: A Survey on Adversaries and Defense Mechanisms . Cham:
+Springer International Publishing, 2023, pp. 29–55.
+[68] E. Hallaji, R. Razavi-Far, M. Saif, and E. Herrera-Viedma, “Label noise
+analysis meets adversarial training: A defense against label poisoning
+in federated learning,” Knowledge-Based Systems, vol. 266, p. 110384,
+2023.
+[69] E. Rosenfeld, E. Winston, P. Ravikumar, and Z. Kolter, “Certified
+robustness to label-flipping attacks via randomized smoothing,” in Pro-
+ceedings of the 37th International Conference on Machine Learning ,
+vol. 119, 2020, pp. 8230–8241.
+[70] E. Bagdasaryan, A. Veit, Y . Hua, D. Estrin, and V . Shmatikov, “How
+to backdoor federated learning,” in Proceedings of the Twenty Third
+International Conference on Artificial Intelligence and Statistics , vol.
+108, 2020, pp. 2938–2948.
+18 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+[71] A. N. Bhagoji, S. Chakraborty, P. Mittal, and S. Calo, “Analyzing
+federated learning through an adversarial lens,” in Proceedings of the
+36th International Conference on Machine Learning, vol. 97, 2019, pp.
+634–643.
+[72] X. Li, P. Jiang, T. Chen, X. Luo, and Q. Wen, “A survey on the security
+of blockchain systems,” Future Generation Computer Systems , vol.
+107, pp. 841–853, 2020.
+[73] M. A. Khan and K. Salah, “Iot security: Review, blockchain solutions,
+and open challenges,” Future Generation Computer Systems , vol. 82,
+pp. 395–411, 2018.
+[74] L. Zhu, Z. Liu, and S. Han, “Deep leakage from gradients,” in Advances
+in Neural Information Processing Systems , vol. 32, 2019.
+[75] L. Melis, C. Song, E. De Cristofaro, and V . Shmatikov, “Exploiting un-
+intended feature leakage in collaborative learning,” in IEEE Symposium
+on Security and Privacy , 2019, pp. 691–706.
+[76] B. Hitaj, G. Ateniese, and F. Perez-Cruz, “Deep models under the gan:
+Information leakage from collaborative deep learning,” in Proceedings
+of the ACM SIGSAC Conference on Computer and Communications
+Security, 2017, pp. 603–618.
+[77] H. Wang, K. Sreenivasan, S. Rajput, H. Vishwakarma, S. Agarwal,
+J.-y. Sohn, K. Lee, and D. Papailiopoulos, “Attack of the tails: Yes,
+you really can backdoor federated learning,” in Advances in Neural
+Information Processing Systems , vol. 33, 2020, pp. 16 070–16 084.
+[78] C. Xie, K. Huang, P.-Y . Chen, and B. Li, “Dba: Distributed backdoor
+attacks against federated learning,” in International Conference on
+Learning Representations, 2020.
+[79] Z. A. E. Houda, A. S. Hafid, and L. Khoukhi, “Mitfed: A privacy
+preserving collaborative network attack mitigation framework based
+on federated learning using sdn and blockchain,” IEEE Transactions
+on Network Science and Engineering , vol. 10, no. 4, pp. 1985–2001,
+2023.
+[80] J. Xu, S. Huang, L. Song, and T. Lan, “Byzantine-robust federated
+learning through collaborative malicious gradient filtering,” in IEEE
+42nd International Conference on Distributed Computing Systems ,
+2022, pp. 1223–1235.
+[81] M. Fredrikson, S. Jha, and T. Ristenpart, “Model inversion attacks
+that exploit confidence information and basic countermeasures,” in
+Proceedings of the 22nd ACM SIGSAC Conference on Computer and
+Communications Security, 2015, pp. 1322–1333.
+[82] Y . Chen, H. Chen, Y . Zhang, M. Han, M. Siddula, and Z. Cai, “A survey
+on blockchain systems: Attacks, defenses, and privacy preservation,”
+High-Confidence Computing, vol. 2, no. 2, p. 100048, 2022.
+[83] H. Chu, P. Zhang, H. Dong, Y . Xiao, S. Ji, and W. Li, “A survey
+on smart contract vulnerabilities: Data sources, detection and repair,”
+Information and Software Technology , vol. 159, p. 107221, 2023.
+[84] B. Wang, Y . Yao, S. Shan, H. Li, B. Viswanath, H. Zheng, and B. Y .
+Zhao, “Neural cleanse: Identifying and mitigating backdoor attacks in
+neural networks,” in IEEE Symposium on Security and Privacy , 2019,
+pp. 707–723.
+[85] Y . Li, X. Lyu, N. Koren, L. Lyu, B. Li, and X. Ma, “Neural attention
+distillation: Erasing backdoor triggers from deep neural networks,” in
+International Conference on Learning Representations, 2021. [Online].
+Available: https://openreview.net/forum?id=9l0K4OM-oXE
+[86] R. Doriguzzi-Corin and D. Siracusa, “Flad: Adaptive federated learning
+for ddos attack detection,” Computers & Security, vol. 137, p. 103597,
+2024.
+[87] P. Blanchard, E. M. El Mhamdi, R. Guerraoui, and J. Stainer, “Machine
+learning with adversaries: Byzantine tolerant gradient descent,” in
+Advances in Neural Information Processing Systems , vol. 30, 2017.
+[88] S. Shen, S. Tople, and P. Saxena, “Auror: Defending against poisoning
+attacks in collaborative deep learning systems,” in Proceedings of the
+32nd Annual Conference on Computer Security Applications, 2016, pp.
+508–519.
+[89] V . Rastogi and S. Nath, “Differentially private aggregation of dis-
+tributed time-series with transformation and encryption,” in Proceed-
+ings of the CM SIGMOD International Conference on Management of
+Data, 2010, pp. 735–746.
+[90] G. ´Acs and C. Castelluccia, “I have a dream! (differentially private
+smart metering),” in Information Hiding. Berlin, Heidelberg: Springer
+Berlin Heidelberg, 2011, pp. 118–132.
+[91] B. Balle, G. Barthe, and M. Gaboardi, “Privacy amplification by sub-
+sampling: Tight analyses via couplings and divergences,” in Advances
+in Neural Information Processing Systems , vol. 31, 2018.
+[92] V . Feldman, I. Mironov, K. Talwar, and A. Thakurta, “Privacy amplifi-
+cation by iteration,” in IEEE 59th Annual Symposium on Foundations
+of Computer Science , Los Alamitos, CA, USA, 2018, pp. 521–532.
+[93] H. Kasyap and S. Tripathy, “Privacy-preserving decentralized learning
+framework for healthcare system,” ACM Trans. Multimedia Comput.
+Commun. Appl., vol. 17, no. 2s, 2021.
+[94] X. Bao, C. Su, Y . Xiong, W. Huang, and Y . Hu, “Flchain: A blockchain
+for auditable federated learning with trust and incentive,” in 5th Inter-
+national Conference on Big Data Computing and Communications ,
+2019, pp. 151–159.
+[95] Z. Peng, J. Xu, X. Chu, S. Gao, Y . Yao, R. Gu, and Y . Tang, “Vfchain:
+Enabling verifiable and auditable federated learning via blockchain
+systems,” IEEE Transactions on Network Science and Engineering ,
+vol. 9, no. 1, pp. 173–186, 2022.
+[96] M. Ogburn, C. Turner, and P. Dahal, “Homomorphic encryption,”
+Procedia Computer Science , vol. 20, pp. 502–509, 2013, complex
+Adaptive Systems.
+[97] C. Gentry, “Fully homomorphic encryption using ideal lattices,” in
+Proceedings of the Forty-First Annual ACM Symposium on Theory of
+Computing, 2009, pp. 169–178.
+[98] I. Damg ˚ard, V . Pastro, N. Smart, and S. Zakarias, “Multiparty com-
+putation from somewhat homomorphic encryption,” in Advances in
+Cryptology. Berlin, Heidelberg: Springer Berlin Heidelberg, 2012,
+pp. 643–662.
+[99] R. L. Rivest, A. Shamir, and L. Adleman, “A method for obtaining dig-
+ital signatures and public-key cryptosystems,” Commun. ACM, vol. 21,
+no. 2, pp. 120–126, 1978.
+[100] P. Paillier, “Public-key cryptosystems based on composite degree
+residuosity classes,” in Advances in Cryptology . Berlin, Heidelberg:
+Springer Berlin Heidelberg, 1999, pp. 223–238.
+[101] Y . Aono, T. Hayashi, L. Trieu Phong, and L. Wang, “Scalable and
+secure logistic regression via homomorphic encryption,” inProceedings
+of the Sixth ACM Conference on Data and Application Security and
+Privacy, 2016, pp. 142–144.
+[102] M. Kim, Y . Song, S. Wang, Y . Xia, and X. Jiang, “Secure logistic
+regression based on homomorphic encryption: Design and evaluation,”
+JMIR Med Inform , vol. 6, no. 2, p. e19, 2018.
+[103] L. T. Phong, Y . Aono, T. Hayashi, L. Wang, and S. Moriai, “Privacy-
+preserving deep learning via additively homomorphic encryption,”
+IEEE Transactions on Information Forensics and Security , vol. 13,
+no. 5, pp. 1333–1345, 2018.
+[104] A. C. Yao, “Protocols for secure computations,” in 23rd Annual
+Symposium on Foundations of Computer Science , 1982, pp. 160–164.
+[105] P. Mohassel and Y . Zhang, “Secureml: A system for scalable privacy-
+preserving machine learning,” in IEEE Symposium on Security and
+Privacy, 2017, pp. 19–38.
+[106] P. Mohassel and P. Rindal, “ABY 3 : A mixed protocol framework for
+machine learning,” in Proceedings of the ACM SIGSAC Conference on
+Computer and Communications Security , 2018, pp. 35–52.
+[107] V . Chen, V . Pastro, and M. Raykova, “Secure computation for machine
+learning with SPDZ,” 2019, arXiv:1901.00329.
+[108] Y . Ma, X. Zhu, and J. Hsu, “Data poisoning against differentially-
+private learners: Attacks and defenses,” in Proceedings of the 28th
+International Joint Conference on Artificial Intelligence, Macao, China,
+2019, pp. 4732–4738.
+[109] M. Abadi, A. Chu, I. Goodfellow, H. B. McMahan, I. Mironov,
+K. Talwar, and L. Zhang, “Deep learning with differential privacy,”
+in Proceedings of the ACM SIGSAC Conference on Computer and
+Communications Security, 2016, pp. 308–318.
+[110] R. C. Geyer, T. Klein, and M. Nabi, “Differentially private federated
+learning: A client level perspective,” 2017, arXiv:1712.07557.
+[111] A. Shamir, “How to share a secret,” Commun. ACM, vol. 22, no. 11,
+p. 612–613, 1979.
+[112] C. Dwork, “Differential privacy: A survey of results,” in Theory and
+Applications of Models of Computation . Berlin, Heidelberg: Springer
+Berlin Heidelberg, 2008, pp. 1–19.
+[113] R. Xu, N. Baracaldo, Y . Zhou, A. Anwar, and H. Ludwig, “Hybridal-
+pha: An efficient approach for privacy-preserving federated learning,”
+in Proceedings of the 12th ACM Workshop on Artificial Intelligence
+and Security, 2019, p. 13–23.
+[114] S. Truex, N. Baracaldo, A. Anwar, T. Steinke, H. Ludwig, R. Zhang,
+and Y . Zhou, “A hybrid approach to privacy-preserving federated
+learning,” in Proceedings of the 12th ACM Workshop on Artificial
+Intelligence and Security , 2019, p. 1–11.
+[115] J. Dong, A. Roth, and W. J. Su, “Gaussian Differential Privacy,”Journal
+of the Royal Statistical Society Series B: Statistical Methodology ,
+vol. 84, no. 1, pp. 3–37, 2022.
+[116] Q. Zheng, S. Chen, Q. Long, and W. Su, “Federated f-differential
+privacy,” in Proceedings of The 24th International Conference on
+Artificial Intelligence and Statistics , vol. 130, 2021, pp. 2251–2259.
+HALLAJI et al.: DECENTRALIZED FEDERATED LEARNING: A SURVEY ON SECURITY AND PRIV ACY 19
+[117] Z. Bu, J. Dong, Q. Long, and W. Su, “Deep Learning With Gaussian
+Differential Privacy,” Harvard Data Science Review , vol. 2, no. 3,
+2020. [Online]. Available: https://hdsr.mitpress.mit.edu/pub/u24wj42y
+[118] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,”
+in 3rd International Conference on Learning Representations , 2015,
+arXiv:1412.6980.
+[119] H. B. McMahan, D. Ramage, K. Talwar, and L. Zhang, “Learning
+differentially private recurrent language models,” in International
+Conference on Learning Representations , 2018. [Online]. Available:
+https://openreview.net/forum?id=BJ0hF1Z0b
+[120] J. C. Duchi, M. I. Jordan, and M. J. Wainwright, “Local privacy
+and statistical minimax rates,” in 1st Annual Allerton Conference on
+Communication, Control, and Computing , 2013, pp. 1592–1592.
+[121] F. Benhamouda, M. Joye, and B. Libert, “A new framework for privacy-
+preserving aggregation of time-series data,” ACM Trans. Inf. Syst.
+Secur., vol. 18, no. 3, 2016.
+[122] C. Dwork, K. Kenthapadi, F. McSherry, I. Mironov, and M. Naor, “Our
+data, ourselves: Privacy via distributed noise generation,” in Advances
+in Cryptology, vol. 4004, 2006, pp. 486–503.
+[123] L. Sun and L. Lyu, “Federated model distillation with noise-free
+differential privacy,” 2020, arXiv:2009.05537.
+[124] N. Papernot, M. Abadi, ´U. Erlingsson, I. Goodfellow, and K. Talwar,
+“Semi-supervised knowledge transfer for deep learning from private
+training data,” 2017, arXiv:1610.05755.
+[125] N. Agarwal, A. T. Suresh, F. Yu, S. Kumar, and H. B. McMa-
+han, “CpSGD: Communication-efficient and differentially-private dis-
+tributed SGD,” in Proceedings of the 32nd International Conference
+on Neural Information Processing Systems , 2018, pp. 7575–7586.
+[126] E. Hallaji, R. Razavi-Far, M. Wang, M. Saif, and B. Fardanesh, “A
+stream learning approach for real-time identification of false data
+injection attacks in cyber-physical power systems,” IEEE Transactions
+on Information Forensics and Security , vol. 17, pp. 3934–3945, 2022.
+[127] S. Morishima, “Scalable anomaly detection in blockchain using graph-
+ics processing unit,” Computers & Electrical Engineering , vol. 92, p.
+107087, 2021.
+[128] M. Signorini, M. Pontecorvi, W. Kanoun, and R. Di Pietro, “Bad:
+A blockchain anomaly detection solution,” IEEE Access , vol. 8, pp.
+173 481–173 490, 2020.
+[129] B. Nelson, M. Barreno, F. J. Chi, A. D. Joseph, B. I. P. Rubinstein,
+U. Saini, C. Sutton, J. D. Tygar, and K. Xia, “Exploiting machine
+learning to subvert your spam filter,” in Proceedings of the 1st USENIX
+Workshop on Large-Scale Exploits and Emergent Threats , 2008.
+[130] M. Jagielski, A. Oprea, B. Biggio, C. Liu, C. Nita-Rotaru, and B. Li,
+“Manipulating machine learning: Poisoning attacks and countermea-
+sures for regression learning,” in IEEE Symposium on Security and
+Privacy, 2018, pp. 19–35.
+[131] S. Li, Y . Cheng, W. Wang, Y . Liu, and T. Chen, “Learning to detect ma-
+licious clients for robust federated learning,” 2020, arXiv:2002.00211.
+[132] T. Id ´e, “Collaborative anomaly detection on blockchain from noisy
+sensor data,” in IEEE International Conference on Data Mining Work-
+shops, 2018, pp. 120–127.
+[133] E. Hallaji, M. Farajzadeh-Zanjani, R. Razavi-Far, V . Palade, and
+M. Saif, “Constrained generative adversarial learning for dimensional-
+ity reduction,” IEEE Transactions on Knowledge and Data Engineer-
+ing, vol. 35, no. 3, pp. 2394–2405, 2023.
+[134] F. Ang, L. Chen, N. Zhao, Y . Chen, W. Wang, and F. R. Yu, “Robust
+federated learning with noisy communication,” IEEE Transactions on
+Communications, vol. 68, no. 6, pp. 3452–3464, 2020.
+[135] K. Pillutla, S. M. Kakade, and Z. Harchaoui, “Robust aggregation for
+federated learning,” 2019, arXiv:1912.13445.
+[136] M. Grama, M. Musat, L. Mu ˜noz-Gonz´alez, J. Passerat-Palmbach,
+D. Rueckert, and A. Alansary, “Robust aggregation for adaptive privacy
+preserving federated learning in healthcare,” 2020, arXiv:2009.08294.
+[137] S. Caldas, J. Kone ˇcn´y, H. B. McMahan, and A. Talwalkar, “Expanding
+the reach of federated learning by reducing client resource require-
+ments,” 2018, arXiv:1812.07210.
+[138] Y . Jiang, S. Wang, B. Ko, W. Lee, and L. Tassiulas, “Model
+pruning enables efficient federated learning on edge devices,” 2019,
+arXiv:1909.12326.
+[139] Y . Chen, F. Luo, T. Li, T. Xiang, Z. Liu, and J. Li, “A training-integrity
+privacy-preserving federated learning scheme with trusted execution
+environment,” Information Sciences, vol. 522, pp. 69–79, 2020.
+[140] F. Mo, H. Haddadi, K. Katevas, E. Marin, D. Perino, and N. Kourtellis,
+“PPFL: Privacy-preserving federated learning with trusted execution
+environments,” in Proceedings of the 19th Annual International Con-
+ference on Mobile Systems, Applications, and Services , 2021, pp. 94–
+108.
+[141] M. Brandenburger, C. Cachin, R. Kapitza, and A. Sorniotti,
+“Blockchain and trusted computing: Problems, pitfalls, and a solution
+for hyperledger fabric,” 2018.
+[142] S. Goldwasser, S. Micali, and C. Rackoff, “The knowledge complexity
+of interactive proof systems,” SIAM Journal on Computing , vol. 18,
+no. 1, pp. 186–208, 1989.
+[143] B. Parno, J. Howell, C. Gentry, and M. Raykova, “Pinocchio: Nearly
+practical verifiable computation,” in EEE Symposium on Security and
+Privacy, 2013, pp. 238–252.
+[144] C. Weng, K. Yang, X. Xie, J. Katz, and X. Wang, “Mystique: Efficient
+conversions for zero-knowledge proofs with applications to machine
+learning,” in USENIX Security, 2021, pp. 501–518.
+[145] D. Li and J. Wang, “Fedmd: Heterogenous federated learning via model
+distillation,” 2019, arXiv:1910.03581.
+[146] R. Shokri, M. Stronati, C. Song, and V . Shmatikov, “Membership in-
+ference attacks against machine learning models,” in IEEE Symposium
+on Security and Privacy , 2017, pp. 3–18.
+[147] A. Salem, Y . Zhang, M. Humbert, M. Fritz, and M. Backes, “ML-
+Leaks: Model and data independent membership inference attacks and
+defenses on machine learning models,” 2018, arXiv:1806.01246.
+[148] A. Raghunathan, J. Steinhardt, and P. Liang, “Certified defenses
+against adversarial examples,” in International Conference on Learning
+Representations, 2018. [Online]. Available: https://openreview.net/
+forum?id=Bys4ob-Rb
+[149] Y . Zhang and H. Yu, “Towards verifiable federated learning,” in Pro-
+ceedings of the Thirty-First International Joint Conference on Artificial
+Intelligence, IJCAI-22, 2022, pp. 5686–5693, survey Track.
+[150] H. Kim, J. Park, M. Bennis, and S.-L. Kim, “Blockchained on-device
+federated learning,” IEEE Communications Letters , vol. 24, no. 6, pp.
+1279–1283, 2020.
+[151] Y . Zhao, J. Zhao, L. Jiang, R. Tan, and D. Niyato, “Mobile edge com-
+puting, blockchain and reputation-based crowdsourcing iot federated
+learning: A secure, decentralized and privacy-preserving system,” 2019,
+arXiv:1906.10893.
+[152] S. Baghersalimi, T. Teijeiro, A. Aminifar, and D. Atienza, “Decentral-
+ized federated learning for epileptic seizures detection in low-power
+wearable systems,” IEEE Transactions on Mobile Computing , pp. 1–
+16, 2023.
+[153] M. Aloqaily, I. A. Ridhawi, and M. Guizani, “Energy-aware blockchain
+and federated learning-supported vehicular networks,” IEEE Transac-
+tions on Intelligent Transportation Systems, vol. 23, no. 11, pp. 22 641–
+22 652, 2022.
+[154] S. H. Alsamhi, F. A. Almalki, F. Afghah, A. Hawbani, A. V . Shvetsov,
+B. Lee, and H. Song, “Drones’ edge intelligence over smart envi-
+ronments in b5g: Blockchain and federated learning synergy,” IEEE
+Transactions on Green Communications and Networking, vol. 6, no. 1,
+pp. 295–312, 2022.
+[155] X. Qu, S. Wang, Q. Hu, and X. Cheng, “Proof of federated learning:
+A novel energy-recycling consensus algorithm,” IEEE Transactions on
+Parallel and Distributed Systems, vol. 32, no. 08, pp. 2074–2085, 2021.
+[156] T. Li, A. K. Sahu, M. Zaheer, M. Sanjabi, A. Talwalkar, and V . Smith,
+“Federated optimization in heterogeneous networks,” 2020.
+[157] D. Gao, Y . Liu, A. Huang, C. Ju, H. Yu, and Q. Yang, “Privacy-
+preserving heterogeneous federated transfer learning,” in IEEE Inter-
+national Conference on Big Data , 2019, pp. 2552–2559.
+[158] Q. Wang, Y . Guo, X. Wang, T. Ji, L. Yu, and P. Li, “Ai at the edge:
+Blockchain-empowered secure multiparty learning with heterogeneous
+models,” IEEE Internet of Things Journal , vol. 7, no. 10, pp. 9600–
+9610, 2020.
+[159] X.-Z. Wu, S. Liu, and Z.-H. Zhou, “Heterogeneous model reuse via
+optimizing multiparty multiclass margin,” in Proceedings of the 36th
+International Conference on Machine Learning , vol. 97, 2019, pp.
+6840–6849.
+[160] J. Kang, Z. Xiong, D. Niyato, S. Xie, and J. Zhang, “Incentive mech-
+anism for reliable federated learning: A joint optimization approach
+to combining reputation and contract theory,” IEEE Internet of Things
+Journal, vol. 6, no. 6, pp. 10 700–10 714, 2019.
+20 IEEE TRANSACTIONS ON BIG DATA, JANUARY 2024
+Ehsan Hallaji (Graduate Student Member, IEEE)
+received the B.Sc. degree in software engineering
+from Shahid Rajaee University, Tehran, Iran,
+in 2015, and the M.A.Sc. degree in electrical
+and computer engineering from the University
+of Windsor, Windsor, ON, Canada, in 2018,
+where he is currently pursuing a Ph.D. degree
+with the Department of Electrical and Computer
+Engineering. His current research interests include
+machine learning, data mining, federated learning,
+and cybersecurity. He is a reviewer for several
+journals and conferences in his area of research. He also served as the
+Vice-Chair of the IEEE SMC Society, Windsor Section, from 2019 to 2022.
+Roozbeh Razavi-Far (Senior Member, IEEE) is
+an Assistant Professor at the Faculty of Computer
+Science and Canadian Institute for Cybersecurity,
+at the University of New Brunswick. His research
+focuses on machine learning, big data analytics,
+computational intelligence, and cybersecurity
+of cyber-physical systems. He has authored or
+co-authored more than 150 papers in scholarly
+journals and international conferences. Stanford
+lists his name among the top two percent most cited
+researchers for 2022. He is the recipient of several
+awards and grants including NSERC-DG, NSERC-ECR, NBIF, USRG
+and NSERC-PDF. He is an Associate Editor at several journals, including
+Neurocomputing, Machine Learning with Applications , Discover Artificial
+Intelligence, and IEEE T RANSACTIONS ON INDUSTRIAL CYBER -PHYSICAL
+SYSTEMS . He served as a Guest Editor and Chair for several journals and
+peer-reviewed conferences, and the Chapter Chair of IEEE Computational
+Intelligence, and Systems, Man and Cybernetics Societies at Windsor Section.
+Mehrdad Saif (Fellow, IEEE) is a distinguished
+figure in the field of systems and control, with a
+career spanning nearly four decades. He received the
+B.S., M.S., and D.Eng. degrees in electrical engi-
+neering from Cleveland State University, OH, USA,
+in 1982, 1984, and 1987, respectively. Throughout
+his graduate studies, he was involved in research
+sponsored by NASA Lewis (now Glenn) Research
+Center and the Cleveland Advanced Manufacturing
+Program (CAMP). In 1987, Dr. Saif joined Simon
+Fraser University’s School of Engineering Science as
+an Assistant Professor. He rose through the ranks, becoming a Full Professor
+in 1997. From 2002 to 2011, he took on the role of Director of the School,
+spearheading its significant expansion during his tenure. Subsequently, he
+served as the Dean of the Faculty of Engineering at the University of
+Windsor from July 2011 until September 2021. There, he initiated major
+developments, including substantial enrollment growth and the addition of
+new programs in aerospace engineering, engineering management, B.Eng.
+technology, mechatronics, among others. Under his leadership, the Faculty of
+Engineering at University of Windsor also saw an increase in both faculty/staff
+numbers and research output. Dr. Saif’s research contributions are both vast
+and impactful, specializing in systems and control, estimation, observer theory,
+and AI/ML-based approaches to fault diagnostics and condition monitoring.
+His work has applications in a range of sectors, including automotive, power,
+and autonomous systems. To date, he has published over 400 refereed journal
+and conference papers and edited a book in these subject areas. He has
+garnered over 10,000 citations and holds a Google h-index of 50. Moreover,
+Dr. Saif is listed in Stanford University’s database of the top 100,000 career
+scientists from 1965 to the present. In his own area of expertise, the same
+database ranks him in the top 0.7%. Research.com also places him at
+2681 worldwide and 139Th nationally among all electrical and electronics
+engineers. Dr. Saif expertise has been sought after by notable organizations
+such as GM, NASA, B.C. Hydro, and Canadian Space Agency (CSA). He
+has also significantly contributed to the IEEE Control Systems Society as
+the Chair of its Vancouver Section and serves on the Editorial Board of
+several esteemed IEEE journals such as the IEEE A CCESS , IEEE SMC
+MAGAZINE , IEEE I NDUSTRIAL INFORMATICS , IEEE T RANSACTIONS ON
+INDUSTRIAL AND CYBER -PHYSICAL SYSTEMS , among others. Dr. Saif
+is a Registered Professional Engineer in Ontario, Canada, and has been
+honored with Fellowships in several prestigious organizations, including IEEE,
+the Canadian Academy of Engineering (CAE), the Engineering Institute of
+Canada (EIC), the Institution of Engineering and Technology (IET), and Asia-
+Pacific Artificial Intelligence Association (AAIA). His IEEE fellowship is
+particularly noteworthy, earned “for contributions to monitoring, diagnosis
+and prognosis in cyber-physical health systems” .
+Boyu Wang (Member, IEEE) received his B.Eng.
+degree in Electronic Information Engineering from
+Tianjin University, Tianjin, China, M.Sc. degree
+in Electrical and Computer Engineering from
+University of Macau, Macau, China, and Ph.D.
+in Computer Science from McGill University,
+Montreal, QC, Canada. He is currently an Assistant
+Professor with the Department of Computer
+Science, University of Western Ontario, London,
+ON, Canada. He is also affiliated with the Brain
+and Mind Institute and the Vector Institute. He
+was a Post-Doctoral Research Fellow at the University of Pennsylvania and
+Princeton University. His research interests include machine learning theory,
+algorithms, and applications.
+Qiang Yang (Fellow, IEEE) received the B.Sc.
+degree in astrophysics from Peking University,
+Beijing, China, in 1982, and the M.Sc. degree in
+astrophysics and the Ph.D. degree in computer
+science from the University of Maryland, College
+Park, MD, USA, in 1985 and 1989, respectively.
+He was a Faculty Member with the University of
+Waterloo, Waterloo, ON, Canada, from 1989 to
+1995, and Simon Fraser University, Burnaby, BC,
+Canada, from 1995 to 2001. He was the Founding
+Director of Huawei’s Noah’s Ark Lab, Hong Kong,
+from 2012 to 2014 and a Co-Founder of 4Paradigm Corporation, Beijing,
+an artificial intelligence (AI) platform company. He is currently the Head of
+the AI Department and the Chief AI Officer of WeBank, Shenzhen, China.
+Dr. Yang has been a Professor Emeritus with the Computer Science and
+Engineering Department, Hong Kong University of Science and Technology
+(HKUST), Hong Kong, since 2023, where he was previously a Chair
+Professor, and a former Head of the CSE Department and the Founding
+Director of the Big Data Institute from 2015 to 2018. He is the author
+of several books, including Intelligent Planning (Springer), Crafting Your
+Research Future (Morgan & Claypool), and Constraint-Based Design
+Recovery for Software Engineering (Springer). His research interests include
+AI, machine learning, and data mining, especially in transfer learning,
+automated planning, federated learning, and case-based reasoning. Dr.
+Yang has served as an Executive Council Member of the Advancement
+of AI (AAAI) from 2016 to 2020. He is a fellow of several international
+societies, including ACM, AAAI, IEEE, IAPR, and AAAS. He was a
+recipient of several awards, including the 2004/2005 ACM KDDCUP
+Championship, the ACM SIGKDD Distinguished Service Award in 2017,
+and the AAAI Innovative AI Applications Awards in 2018 and 2020. He was
+the Founding Editorin-Chief of the ACM Transactions on Intelligent Systems
+and Technology and IEEE T RANSACTIONS ON BIG DATA. He has served as
+the President of the International Joint Conference on AI (IJCAI) from 2017
+to 2019.

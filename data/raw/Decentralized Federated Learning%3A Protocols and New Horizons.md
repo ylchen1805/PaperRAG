@@ -1,0 +1,34 @@
+- The Shift from Centralized to Decentralized
+  While CFL protects user data privacy by sharing only model parameters, it suffers from critical bottlenecks:
+	- **Single Point of Failure( SPoF)**: If the central server fails, the entire system halts.
+	- **Resource Constraints**: The server faces immense computational and storage pressure when handling billions of clients.
+	- **Trust Issues**: There are concerns about whether the server is aggregating fairly or is secure from attacks.
+- **Decentralized Fedrated Learning( DFL)** removes the centtral server entirely, Clients communicate directly with one another( peer-to-peer), saving communication resources and eliminating the central bottleneck. In DFL, the network topology is customizable, and connections can be adapted based on geographic neighbors or client similarity.#Client_Similarity #Geographic_Neighbors
+- A New Taxonomy for DFL#Categorize_DFL
+	- **Iteration Order**: Unlike CFL where clients run in parallel, DFL may utilize sequential, cyclic, random, or dynamic queues.
+	- **Comunication Protocal**: The method of data exchange. Common protocols include ==**Gossip**( stochastic one-to-one communication)==, Broadcast( one-to-all), and **Pointing**( directed one-to-one).#Protocol
+	- **Network Topology**: The structure of connections between clients.DFL allows for diverse structures such as Line, Ring, Mesh( fully connected), Star, and Hybrid topologies.
+	- **Temporal Variabililty**: Static( fixed connections) or Dynamic. Dynamic topologies change over time, similar to schools of fish or bird formations, to adapt to external interference or to optimize communication efficiency.
+	- **Paradigm Proposal**: A Distinction between two learning paradigms.
+- Core Insight: Continual vs Aggregate Paradigms#Aggregation
+	- Classified two distinct paradigms based on how clients process incoming models.
+	- **The Aggregate Paradigm**: A client receives models from multiple peers, aggregates( averages) them, and then performs local training. This usually results in more stable convergence but requires higher communication and storage overhead.
+	- **The Continual Paradigm**: A client receives a model from a single peer and trains directly on top of it( incremental learning). This method is highly efficient regarding communication and storage because clients do not need to store multyple model versions. However, it risks ==**catastrophic forgeting**( overwriting previous knowledge)==, though it allows for stronger model personalization.
+- Proposed Topology Variants
+  Analyzes several DFL variants ased on network topology #Network_Topology
+	- **Line**: Simple and intuitive but suffers from poor generalization for the starting clients and cannot support continuous knowlege updates.
+	- **Ring**:  A cyclic version of the line topology. I allows for indefinite iteration and better convergence but can be slow.
+	- **Mesh**: A fully connected network where clients communicate with all others. It eliminates SPoF but has high bandwidth requirements.
+	- **Star**: Resembles CFL, but the **center** is a client( like a hospital) that also holds data and trains locally. the creates a **judge, jury, and executioner** ethical dilemma where the central client might favor its own data.
+	- **Hybrid**: Combines different topologies( eg. clusters of meshes connected by a ring). This is viewed as the most promissing for real-world scenarios, balancing security, personalization, and efficiency.
+- Real-world Applications
+  DFL is particularly suited for scenarios requiring privacy and low latency without a central authority
+	- **Connected Vehicles( V2V)**: Vehicles exchange knowledge directly to improve autonomous driving models without relying on distant cloud servers.
+	- **Healthcare**: Hospitals( e.g., in **Swarm Leaning**) share model parameters to fight diseases like COVID-19 without sharing patient data or relying on a central administrator.#Swarm_Learning
+	- **Industrial IoT**: Factories use DFL for robustness; if one device fails, the production line's learning process continues.
+	- **UAVs and Satellites**: DFL reduces bandwidth usage for devices in orbit or flight that have limited communication windows.
+- Challenges and Future Directions
+	- **Communication Overhead**: While better than CFL in some regards, DFL still requires significant bandwidth, especially in Mesh topologies.
+	- **Security**: Without a central server, DFL is vulnerable to free-riding attacks( clients using the model without contributing) and poisoning attacks. The authors suggest Blockchain and reputation scores as potential solutions.#Blockchain
+	- **Lack of Management**: The absencee of a coordinator can lead to deadlockks or version confusion among clients. Solutions may involve electing temporary leaders or using "gossip" protocols to spread status information.#Gossip
+- #DFL

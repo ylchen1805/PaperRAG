@@ -1,0 +1,2590 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 1
+A Survey on Decentralized Federated Learning
+Edoardo Gabrielli, Anthony Di Pietro, Dario Fenoglio, Giovanni Pica, Gabriele Tolomei
+Abstract—Federated learning (FL) enables collaborative train-
+ing without pooling raw data, but standard FL relies on a
+central coordinator, which introduces a single point of failure
+and concentrates trust in the orchestration infrastructure. Decen-
+tralized federated learning (DFL) removes the coordinator and
+replaces client–server orchestration with peer-to-peer coordination,
+making learning dynamics topology-dependent and reshaping
+the associated security, privacy, and systems trade-offs. This
+survey systematically reviews DFL methods from 2018 through
+early 2026 and organizes them into two architectural families:
+traditional distributed FL and blockchain-based FL. We then
+propose a unified, challenge-driven taxonomy that maps both
+families to the core bottlenecks they primarily address, and we
+summarize prevailing evaluation practices and their limitations,
+exposing gaps in the literature. Finally, we distill lessons learned
+and outline research directions, emphasizing topology-aware
+threat models, privacy notions that reflect decentralized exposure,
+incentive mechanisms robust to manipulation, and the need to
+explicitly define whether the objective is a single global model or
+personalized solutions in decentralized settings.
+Index Terms—Decentralized Federated Learning, Peer-to-Peer
+Federated Learning, Blockchain-based Federated Learning
+I. I NTRODUCTION
+The last decade has witnessed incredible advances in machine
+learning (ML) and artificial intelligence (AI), which in turn
+have led to the pervasive application of such techniques across
+several domains. For example, ML/AI solutions are nowadays
+successfully used to solve complex tasks in natural language
+processing (NLP), computer vision, finance, and healthcare, to
+name a few. One of the most remarkable successes of ML/AI is
+undoubtedly represented by recent multimodal large language
+models (LLMs), such as GPT-4o [1] and Gemini 1.5 [2], as well
+as generative systems for rich media, including text-to-image
+models such as DALL-E 3 [3] and large-scale video generation
+models such as Sora [4]. These tools have raised the bar of
+human-to-machine interaction to a new level, unforeseeable
+only a few years ago.
+The increasing complexity of deep neural network archi-
+tectures at the heart of such tools, having millions or even
+billions of learnable parameters, requires a massive volume of
+data to avoid the risk of overfitting. The standard approach for
+training such huge models is to collect large datasets in a single
+location, either physically centralized like a dedicated server
+or logically centralized like a cloud-based cluster of machines.
+Very often, this necessitates moving data from their local
+origins to a remote destination, causing at least two problems.
+Edoardo Gabrielli (corresponding author) is with the Department of
+Computer, Control and Management Engineering, Sapienza University of
+Rome, Italy. E-mail: edoardo.gabrielli@uniroma1.it.
+Anthony Di Pietro, Giovanni Pica, and Gabriele Tolomei are with the
+Department of Computer Science, Sapienza University of Rome, Italy.
+Dario Fenoglio is with the Università della Svizzera Italiana, Lugano,
+Switzerland.
+First, the high-rate transmission of a large bulk of data may
+exhaust network bandwidth consumption, ultimately affecting
+energy efficiency, especially for resource-constrained devices
+like mobile smartphones. Second, and most importantly, data
+ownership is transferred to a third-party entity with possible
+implications for its privacy and security. This paradigm poses
+significant challenges in some critical application domains
+where ML/AI systems are deployed due to existing regulatory
+restrictions. Indeed, several initiatives, such as GDPR [5] and
+HIPAA [6], have emerged to govern and protect the sharing of
+sensitive data. As it turns out, any company that (marginally)
+relies on ML/AI tools to run its business must satisfy data
+privacy and security requirements promulgated by current laws
+and regulations. This is even more stringent for so-called “data-
+driven” companies, whose revenue heavily depends on the
+value they are able to extract from data.
+Many solutions have been proposed in the literature to
+mitigate potential data privacy and security issues in the
+traditional ML setting, primarily leveraging differential privacy
+(DP) [7], homomorphic cryptography (HC) [8], and secure
+multi-party computation (SMPC) [9], [10] techniques. However,
+deploying these solutions in practice may be problematic.
+For instance, the amount of random noise injected by DP
+mechanisms must be carefully calibrated; adding more noise
+can guarantee higher data privacy protection, but might also
+decrease the model accuracy significantly. Similarly, using
+HC to compute encrypted learning data may be limited to
+simple linear models [11] or a very small number of entities
+involved [12]. Finally, although SMPC can be used for large-
+scale ML, this technique is not immune to information leakage.
+Thus, instead of “patching” the standard ML framework
+with privacy-preserving solutions ex post , the focus of the
+research community has shifted to planning novel ML training
+procedures that protect data privacy and security by design.
+As a result of such effort, federated learning (FL) is a new
+ML paradigm first introduced by Google in 2017 [13] that
+addresses the challenges above. The authors advocate the need
+for a new distributed training procedure with a well-known
+app for smartphones, i.e., the smart Google keyboard (Gboard).
+Indeed, at the core of Gboard, there is a neural language model
+that can predict, hence suggest, the next word to enter while
+the user is typing. For such a model to be successful, it must be
+trained on vast text corpora collected from many user devices
+(e.g., smartphones). In contrast to the standard ML approach,
+which would require (i) transferring these user-generated data
+from remote devices into Google’s infrastructure, (ii) training a
+model on those data at a central location, and (iii) distributing
+the learned model back to user devices, Google proposed FL.
+Generally speaking, FL trains a global model using distributed
+data, without the need for the data to be shared or transferred
+to any central facility. In other words, FL takes advantage of a
+arXiv:2308.04604v2 [cs.LG] 10 Mar 2026
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 2
+multitude of AI-enabled edge devices that cooperate with each
+other to jointly learn a predictive model using their own local
+private data. Specifically, an FL system consists of a central
+server and many edge clients; a typical FL round involves the
+following steps: (i) the server randomly picks some clients
+and sends them the current, global model; (ii) each selected
+client locally trains its model with its own private data; then,
+it sends the resulting local model to the server; 1 (iii) The
+server updates the global model by computing an aggregation
+function on the local models received from clients (by default,
+the average, FedAvg [14]). The process above continues until
+the global model converges. Since this paradigm smoothly
+integrates with ubiquitous, distributed infrastructures, FL has
+been successfully applied to several domains, such as IoT [15],
+Fog computing [16], autonomous vehicles [17], and wearable
+devices [18].
+Although FL has unquestionable advantages over standard
+ML, it also presents problems related to centralized orchestra-
+tion:
+• Single Point of Failure: A centralized server may crash,
+causing the system to collapse or stall [19].
+• Privacy, Trust Issues, and Security: In standard FL, the
+central server has access to the whole set of local models
+sent by clients, which may expose sensitive information
+through Model Inversion [20], Membership Inference [21],
+and Data Reconstruction [22]–[24] attacks. Furthermore,
+the server could not only act as an honest but curious
+entity but could also be malicious as a whole, performing
+model poisoning attacks [25]–[27] and data poisoning
+ones [28]–[30].
+• Communication Overhead and Latency: The server must
+communicate with an arguably growing number of clients,
+which may reach millions of devices in some cases [31],
+leading to high bandwidth usage and latency [32], [33].
+• Scalability Bottlenecks: As the number of clients in-
+creases, the central server may be unable to satisfy the
+growing system’s needs due to its limited computational
+resources.
+We provide a comprehensive review of works that address
+decentralization of the orchestration/aggregation role in FL,
+i.e., decentralized FL (DFL). Accordingly, we exclude papers
+that primarily improve server-based FL (e.g., compression,
+personalization, or secure aggregation under a coordinator)
+unless they are explicitly instantiated in a peer-to-peer or
+blockchain-based decentralized architecture. In DFL, the central
+coordinator is dropped, embracing a peer-to-peer architecture
+where nodes both train their own local model and aggregate
+the arriving ones from their neighbors. This solution eliminates
+the dependency on a single entity, providing advantages on
+all the four axes above: removing the single point of failure
+enhances the reliability of the system, and jeopardizing the
+entire network requires more effort on the adversarial side.
+Moreover, the computation and communication costs are spread
+across the entire network instead of a single server.
+1Whenever we refer to global/local model, we mean global/local model
+parameters.
+However, the benefits of decentralized FL do not come for
+free. First, peer-to-peer architectures must take into account
+the heterogeneity of their participants. Second, choosing the
+right network topology is essential to keep the bandwidth
+utilization low (e.g., a fully connected network is not more
+scalable than standard FL). Third, since there is no central
+server, peers are responsible of their own security and privacy.
+Fourth, incentivizing active participation from peers is essential
+to prevent lazy nodes. Overall, eliminating the single point
+of failure may inadvertently exacerbate some of the existing
+issues in standard FL systems.
+A. Comparison with previous surveys and contributions
+Previous surveys on DFL are largely axis-specific
+(Table I): [34] emphasize fundamentals (FL architec-
+tures/topologies/communication), tooling and frameworks,
+KPIs, and application scenarios; [35] focus on security and
+privacy threats/defenses in DFL, with taxonomy and discussion
+primarily organized around the security–privacy lens; and
+[36] propose multiple taxonomies centered on system design
+dimensions such as iteration order, communication protocol,
+network topology, and paradigm/temporal variability, aiming
+at IoT applications. In parallel, [37] treats blockchain-based
+DFL as the primary object of study and organizes the field
+around ledger-centric concepts, frameworks, and challenges
+rather than comparing blockchain against non-ledger peer-to-
+peer decentralization on equal footing. All the aforementioned
+surveys, beyond being updated to cover the literature up to 2023,
+do not follow a systematic literature review methodology; as a
+result, their corpora may be affected by selection and reporting
+biases (e.g., over-representing highly visible keywords), which
+can skew the perceived maturity of the field and the conclusions
+drawn about open gaps.
+In contrast, our survey contributes a unified, challenge-driven
+taxonomy that jointly covers traditional peer-to-peer DFL and
+blockchain-based DFL works, spanning the literature from
+the inception of DFL (2018) through 2026, and organizing
+both families by the core systems challenges they are de-
+signed to address (fault tolerance, privacy, security, incentives,
+heterogeneity, bandwidth efficiency, theory/task extensions,
+and resource efficiency). This perspective (i) lets readers
+immediately retrieve “what to read” for a specific bottleneck,
+(ii) exposes systematic coverage gaps (dimensions that are
+repeatedly under-addressed), and (iii) makes the traditional vs.
+blockchain trade-space explicit within a single coherent map,
+rather than splitting it across architecture-only or security-only
+narratives.
+In summary, the contributions of this article are as follows:
+(i) We discuss the fundamentals of standard FL, peer-to-peer
+systems, and blockchain, covering key aspects such as fed-
+eration scale, data partitioning methods, communication
+architectures, challenges, and definitions.
+(ii) We conduct a systematic literature review, selecting
+relevant works based on the Preferred Reporting Items
+for Systematic Reviews and Meta-Analyses (PRISMA)
+guidelines.
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 3
+TABLE I: Comparison between our survey and prior surveys on DFL.
+Reference Year Lit. Coverage Scope / lens PRISMA Lit. Evolution Fundamentals Challenges Classification Pure P2P Blockchain Unified Taxonomy
+Martínez Beltránet al.[34] 2023 2023 Frameworks, KPIs, trends # # G # # # #Hallajiet al.[35] 2024 2022 Security & privacy # # G # # G # G # #Yuanet al.[36] 2024 2023 IoT-oriented, topologies # G # G # # G # #Zhanget al.[37] 2024 2023 Blockchain-based DFL # # G # # # #
+This survey 2026 2026 Comprehensive DFL landscape 
+Legend: fully covered; G #partially covered; # not covered.
+(iii) We propose two novel taxonomies for standard peer-to-
+peer and blockchain-based DFL methodologies, catego-
+rizing and analyzing the most influential works based on
+the challenges they address.
+(iv) We discuss open challenges and future directions for DFL
+systems.
+The remainder of this paper is organized as follows. In
+Section II, we recall some background and preliminary concepts.
+Section III describes the methodology used to collect the set
+of most relevant works on DFL proposed in the literature
+and considered in this survey. Section IV discusses the main
+challenges of DFL. We categorize and review the contributions
+in Section V. We also sketch several interesting lines of future
+research on this subject in Section VI. Finally, Section VII
+concludes our work.
+II. B ACKGROUND AND PRELIMINARIES
+In this section, we review some background and preliminary
+concepts utilized throughout this manuscript. Specifically, we
+cover three main topics: (i) federated learning (FL), (ii) peer-
+to-peer systems (P2P), and (iii) blockchain.
+A. Federated Learning
+The prototypical FL setting consists of a central server S
+and a set of distributed clients C, such that |C| = K, that
+jointly cooperate to solve a standard supervised learning task. 2
+Each client c ∈ C has access to its own private training set
+Dc, namely the set of its nc local labeled examples, i.e., Dc =
+{xc,i, yc,i}nc
+i=1.
+The goal of FL is to train a global predictive model whose
+architecture and parameters θ∗ ∈ Rd are shared amongst all
+the clients and found to solve the following objective:
+θ∗ = argminθL(θ) = argminθ
+KX
+c=1
+pcLc(θ; Dc), (1)
+where Lc is the local objective function for client c. Usually,
+this is defined as the empirical risk calculated over the training
+set Dc sampled from the client’s local data distribution:
+Lc(θ; Dc) = 1
+nc
+ncX
+i=1
+ℓ(θ; (xc,i, yc,i)), (2)
+where ℓ is an instance-level loss (e.g., cross-entropy loss or
+squared error in the case of classification or regression tasks,
+respectively). Furthermore, each pc ≥ 0 specifies the relative
+contribution of each client. Since it must hold that PK
+c=1 pc =
+2Notice that the FL paradigm can also be used to solve unsupervised learning
+tasks like K-means clustering [38].
+1, two possible settings for it are: pc = 1 /K or pc = nc/n,
+where n = PK
+c=1 nc.
+The generic federated round at each time t is decomposed
+into the following steps and iteratively repeated until conver-
+gence, i.e., for each t = 1, 2, . . . , T:
+(i) S randomly selects a subset of clients C(t) ⊆ C , so that
+1 ≤ |C (t)| ≤ K, and sends them the current, global
+model θ(t). To ease of presentation, without loss of
+generality, in the following, we assume that the number
+of clients picked at each round is constant and fixed, i.e.,
+|C(t)| = m, ∀t ∈ {1, 2, . . . , T}.
+(ii) Each selected client c ∈ C (t) trains its local model θ(t)
+c
+on its own private data Dc by optimizing the following
+objective, starting from θ(t):
+θ(t)
+c = argminθ(t) Lc(θ(t); Dc). (3)
+The value θ(t)
+c is computed via gradient-based methods
+like stochastic gradient descent (SGD) and sent back to
+S.
+(iii) S computes θ(t+1) = ϕ({θ(t)
+c | c ∈ C (t)}) as the updated
+global model, where ϕ : Rdm
+7→ Rd is an aggregation
+function; for example, ϕ = 1
+m
+P
+c∈C(t) θ(t)
+c , i.e., FedAvg
+or one of its variants [39].
+Figure 1a illustrates this standard client–server FL workflow.
+A few alternatives to the scheme above are possible.
+For example, in step (ii), instead of sending the vector of
+parameters θ(t)
+c , each selected client could transmit to the
+server its displacement vector compared to the global model
+received at the beginning of the round, i.e., u(t)
+c = θ(t)
+c − θ(t).
+This way, in step (iii), the server will compute the new global
+model as θ(t+1) = θ(t) + ϕ({u(t)
+c | c ∈ C (t)}), namely the
+aggregation function is calculated on the local update vectors
+rather than the actual local models. Similarly, sending local
+models (or their updates) θ(t)
+c (u(t)
+c ) is equivalent to sending
+“raw” gradients ∇L(t)
+c to the central server; in the latter case,
+S simply aggregates the gradients and uses them to update the
+global model, i.e., θ(t+1) = θ(t) − ηϕ({∇L(t)
+c | c ∈ C (t)}),
+where η is the learning rate.
+Broadly speaking, FL systems can be categorized according
+to four different axes: data partitioning , machine learning
+model, scale of federation , and communication architecture.
+Below, we review each of these aspects separately.
+1) Data Partitioning: Data can be distributed over the
+sample and feature spaces, which creates a categorization in
+horizontal, vertical, and hybrid FL [40].
+In horizontal FL, the datasets of different clients have the
+same feature space but little intersection on the sample space.
+The majority of studies on FL assume horizontal partitioning.
+Since the local data are in the same feature space, the parties can
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 4
+(a) A general FL round. (1) The server samples a subset of available clients,
+initializes the model, and sends it to the selected workers. (2) Receiving
+clients train the model on their local datasets (3) and send back the updated
+models to the server. (4) The server aggregates the local models using a
+specified aggregation rule.
+(b) A general decentralized FL (DFL) round. (1) Each node performs local
+training on its private data, (2) exchanges model updates with neighboring
+peers, and (3) updates its local model via neighbor-based local aggregation.
+Fig. 1: Architectural comparison between standard FL and
+DFL. (a) FL relies on a central orchestrator for client selection
+and global aggregation. (b) DFL removes the central server and
+performs P2P coordination, where nodes iteratively train locally,
+exchange updates with neighbors, and aggregate received
+updates.
+train the local models using their local data with the same model
+architecture, and the global model can simply be updated by
+averaging all the local models using standard FedAvg. A typical
+example where horizontal FL comes into play is when two
+(or more) regional branches of a bank want to collaboratively
+train a loan prediction model for their customers. Each branch
+may have very different user groups due to its geographical
+location, and the common set of users shared between any two
+branches is very small. However, their business is very similar,
+so the feature spaces are likely the same.
+In vertical FL, instead, the datasets of different clients have
+the same or similar sample space but differ in the feature space.
+It usually adopts entity alignment techniques [41] to collect the
+overlapped samples of the parties, and then these data are used
+to train the machine learning model using encryption methods.
+As an example, consider two different companies in the same
+city, e.g., a bank and an e-commerce business. Their customer
+bases are likely to contain most of the residents of the area,
+so the intersection of their user space is large. However, the
+bank may record the user’s revenue and expenditure behavior
+and credit rating, whereas the e-commerce collects the user’s
+browsing and purchasing history; thus, their feature spaces are
+different.
+Finally, hybrid FL (also referred to as federated transfer
+learning or FTL) is a combination of horizontal and vertical
+data partitioning. FTL applies when any pair of datasets from
+federated clients differ both in samples and in feature space.
+For instance, consider two different companies that are also
+geographically distant from each other, e.g., a bank located
+in China and an e-commerce company located in the United
+States. Due to geopolitical restrictions, the user groups of the
+two companies have a small intersection. Moreover, due to the
+different businesses, only a small portion of the feature space
+from both parties overlaps. In this case, transfer learning [42]
+techniques can be applied to provide solutions for the entire
+sample and feature space under a federation.
+2) Machine Learning Models: FL is primarily used to
+jointly solve a machine learning task, which usually consists of
+collaboratively training a common model on several distributed
+private datasets. The choice of the specific ML model to train
+depends on the problem at hand and the dataset. The most
+popular family of models used within FL systems is Neural
+Networks (NNs) in all their flavors. Simpler models, such
+as Linear Regression (LinReg) or Logistic Regression [43]
+(LogReg), and Decision Trees [44] (DTs) or ensembles of
+those like the Gradient Boosting Decision Trees (GBDTs)
+are also successfully proposed in FL environments [45], [46],
+mostly due to their high efficiency and interpretability.
+Generally speaking, an FL system can consist of homoge-
+neous or heterogeneous ML models. In the former case, all
+clients have the same model, and aggregation of gradients
+comes into play at the server. In the latter scenario, there
+is no need for aggregation since each client has a different
+model. Therefore, at the server’s end, aggregation methods are
+replaced by ensemble methods [47] like majority voting [48],
+or knowledge distillation techniques [49].
+3) Scale of Federation: FL systems can be categorized into
+cross-silo and cross-device [19]. The difference between the two
+concerns the number of parties involved and the amount of data
+available at each client. The simplest way to understand them is
+to associate cross-silo with large organizations or data centers
+and cross-devices with mobile devices. In the case of cross-
+silo, the number of federated clients is usually small, but they
+have extensive computational abilities (e.g., a group of large
+medical institutions). The main challenge of cross-silo FL is to
+create an efficient distributed computation under the constraint
+of privacy [50]. When it comes to cross-device, instead, FL
+systems are made of a massive number of clients, each one with
+limited computational power (e.g., Google Gboard). In cross-
+device FL, the primary challenge relates to devices’ energy
+consumption, which limits the complexity of training tasks that
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 5
+they can perform.
+4) Communication Architecture: The centralized architec-
+ture follows a client-server model, where a central entity acts
+as the orchestrator. Its role involves coordinating the entire
+distributed training process, including aggregating individual
+local models sent by clients into a single global model. On
+the other hand, in a decentralized architecture, there is no
+fixed distinction between client and server roles. Instead, each
+participant can both train on local data and aggregate models
+received from its neighbors; in some designs, aggregation
+responsibilities may rotate or be assigned to a subset of nodes.
+We contrast the client–server FL pipeline with its decentralized
+counterpart in Figure 1b.
+Implementing decentralized FL systems poses significant
+challenges and can be categorized into two main categories:
+traditional distributed computing methods, such as P2P ap-
+proaches, and those utilizing blockchain technology.
+In this survey, we will examine and assess the most relevant
+approaches to decentralized FL that have been proposed in the
+existing literature.
+B. Peer-to-Peer Systems (P2P)
+Generally speaking, P2P computing offers an alternative to
+the traditional client-server architecture [51]. In a client-server
+model, clients connect to a central server to make requests
+while the server processes and responds to those requests. In
+contrast, P2P distributed systems allow nodes in the network
+to act as both servers and clients, promoting decentralization.
+Although it is customary to associate P2P systems with
+(illegal) content sharing, they have broader applications beyond
+that. Increasingly, P2P solutions are being deployed to address
+various problems that were traditionally reliant on centralized
+server-based approaches. Some examples of P2P systems are
+BitTorrent [52], Gnutella [53], Napster [54], and Skype [55].
+The fundamental principle of P2P networks is to enable
+resource sharing among end systems, including files, storage
+space, CPU cycles, and more. These systems create an overlay
+network, facilitating communication between peers.
+There are three primary characteristics of a P2P system [56]:
+• Self-organizing: Nodes must organize themselves to form
+an overlay network. There should be no assistance from a
+central node. Also, there should not be any global index
+that lists all the peers and/or the available resources.
+• Symmetric communication: All nodes must be equal (i.e.,
+no node should be more important than any other node).
+Also, peers should both request and offer services (i.e.,
+they should act as both clients and servers).
+• Decentralized control : There should not be a central
+controlling authority that dictates behavior to individual
+nodes. Peers should be autonomous and must determine
+their level of participation in the network on their own.
+P2P networks offer some advantages over classical client-
+server architectures, such as eliminating the single-point-of-
+failure and single-source bottleneck. The primary characteristics
+of P2P networks are reliability [57] against nodes that discon-
+nect or have a low latency or bandwidth; scalability [58] as
+the workload is no more concentrated in a server; privacy [59]
+and anonimity [60] via cryptographic protocols.
+Still following [56], some of the key challenges of P2P
+systems are as follows:
+• Budget: The budget allocated to a solution influences the
+consideration of P2P architectures. If the budget is ample,
+the inefficiencies and complexities associated with P2P
+may not be deemed worthwhile. However, if the budget is
+limited, the low cost of entry for individual peers becomes
+an attractive factor despite the increased total system cost.
+Utilizing local components and surplus resources may be
+a justifiable approach within constrained budgets.
+• Resource relevance to participants: The relevance of data
+to peers plays a significant role in P2P cooperation. If
+the probability of peers being interested in each other’s
+data is high, cooperation naturally evolves. Conversely, if
+relevance is low, artificial or extrinsic incentives may be
+necessary to foster cooperation.
+• Trust: Trust among peers varies depending on the specific
+problem requirements. Mutual distrust can be either
+essential or negligible. However, the cost of mutual distrust
+in P2P systems is high, and its necessity must be justified
+based on the problem’s characteristics.
+• Rate of system change: P2P systems may experience
+stable or rapidly changing participants, resources, and
+parameters. Rapid changes pose challenges in ensuring
+consistency guarantees, defending against flooding, and
+mitigating other attacks.
+• Criticality: If the problem being solved is critical to
+users, centralized control may be demanded regardless
+of technical criteria. Even when P2P is not ruled out,
+the need for expensive security measures or extensive
+over-provisioning may render it economically unfeasible.
+• Security: P2P networks are known to be vulnerable to
+various types of security attacks. For instance, malicious
+nodes can disrupt the network by flooding it with redun-
+dant data, manipulating trust values in trust-based systems,
+coordinating with other malicious nodes for distributed
+denial-of-service (DDoS) attacks, or performing Sybil
+attacks by creating multiple fake identities within the
+network [61].
+In recent years, decentralized machine learning has gained
+popularity within P2P networks. The focus has been on solving
+the distributed consensus problem, aiming to find a global
+model that minimizes the sum of local loss functions [62],
+[63]. Additionally, research has explored privacy-preserving
+approaches and scenarios where agents have distinct objec-
+tives [64]. These advancements enable collaborative learning
+and optimization in a decentralized manner.
+C. Blockchain
+In essence, a blockchain is an open and distributed ledger
+designed to record transactions between parties securely and
+permanently. It operates by facilitating the transfer of digital
+assets (e.g., cryptocurrencies) from one account to another.
+Transactions are packed into blocks, forming a chain where
+each block is linked to its predecessor using hash functions.
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 6
+Consensus mechanisms are used to achieve agreement within
+the blockchain network. According to [65], some key properties
+of this technology are:
+• Ledger: Append-only ledger to provide full transactional
+history. Unlike traditional databases, transactions and
+values in a blockchain are not overridden.
+• Secure: Cryptographically secure, the data within the
+ledger is attestable.
+• Shared: The ledger is shared amongst multiple par-
+ticipants. This provides transparency across the node
+participants in the blockchain network.
+• Distributed: The blockchain can be distributed. By in-
+creasing the number of nodes, the ability of a bad actor
+to impact the consensus protocol used by the blockchain
+is reduced.
+Blockchain technology has had a recent impact, although
+it dates back 30 years. In 2008, a paper published pseudony-
+mously by Satoshi Nakamoto [66] described Bitcoin: a P2P
+electronic cash system that works like a chain of digital
+signatures. Each owner transfers the coin to the next by digitally
+signing a hash of the previous transaction and the public key of
+the next owner and adding these to the end of the coin. A payee
+can verify the signatures to verify the chain of ownership. The
+consensus algorithm to decide which is the next block is called
+proof-of-work (PoW), which is, in brief, a computationally
+expensive puzzle. Once a node solves the puzzle, it packages
+the transactions into a block, attaches the PoW solution, and
+broadcasts the full block to the network. Other nodes adopt
+the longest chain rule to maintain consensus.
+After the introduction of Bitcoin, the concept of blockchain
+expanded to include programmable capabilities. In 2015,
+Ethereum [67] was introduced as a blockchain platform with a
+built-in programming language, allowing the creation of smart
+contracts and decentralized applications. Ethereum uses its
+cryptocurrency, called “Ether” as the internal fuel for executing
+transactions and running smart contracts. In Ethereum, there are
+two types of accounts: externally owned accounts controlled
+by private keys and contract accounts controlled by their
+contract code. Smart contracts enable users to define rules
+for ownership, transaction formats, and state transitions. The
+consensus protocol used in Ethereum is called proof-of-stake
+(PoS), where validators stake their capital in Ethereum to
+propose and add new blocks to the blockchain. Validators are
+incentivized to follow the rules, as deviations can result in
+penalties or loss of stake.
+Blockchain technology has also found utility in various
+ML tasks [68]. Researchers have explored different consensus
+algorithms that are particularly relevant to FL. These include
+proof-of-federated-learning (PoFL), which repurposes the
+energy consumed in traditional PoW algorithms for solving
+meaningful puzzles in the context of FL [69]. Moreover, proof-
+of-quality (PoQ) introduces a consensus protocol based on
+Quality-of-Service (QoS) to ensure high-quality contributions
+to the blockchain [70]. In addition, proof-of-authority (PoA)
+relies on identity as a stake to achieve faster transaction
+processing [71]. Finally, committee-based consensus algorithms
+involve the validation of local gradients before appending them
+to the blockchain, where a committee of honest nodes verifies
+and generates blocks [72].
+Despite these advantages, the literature consistently high-
+lights that blockchain deployments introduce substantial over-
+heads and non-trivial trade-offs, which can outweigh the
+benefits when the application does not strictly require a shared,
+tamper-evident ledger. The main challenges and downsides
+discussed in prior work can be summarized as follows:
+• Scalability and throughput limits: Ledgers typically sup-
+port limited transaction throughput; as workload increases,
+networks may experience congestion, longer confirmation
+times, and degraded performance [73], [74].
+• Latency and slow finality: Consensus and global replica-
+tion increase end-to-end delay and make finality slower
+than in centralized databases [74].
+• Resource and energy overhead: Consensus can impose
+high computational and energy costs (especially under
+PoW), while other protocols reduce energy consumption
+at the expense of additional coordination assumptions and
+communication complexity [75].
+• Storage and communication overhead: Maintaining a
+replicated ledger entails persistent storage growth and
+sustained bandwidth usage for block dissemination and
+validation [76].
+• Security risks beyond cryptography: While transactions
+are cryptographically protected, real systems remain
+vulnerable to consensus-level attacks (e.g., majority/51%
+attacks in weakly provisioned networks), and smart-
+contract vulnerabilities, any of which can compromise
+integrity or availability [74].
+• Privacy tensions: Immutable and transparent ledgers can
+conflict with data-protection requirements (e.g., minimiza-
+tion and erasure rights) and increase the compliance
+burden in regulated domains [77].
+In DFL environments, where peers already perform the core
+functions of local training and neighbor-based aggregation,
+these overheads must be carefully weighed before introducing
+a blockchain layer. In other words, blockchain should not
+be treated as a default substrate for decentralization, but as
+an optional component justified by concrete requirements
+(e.g., auditability, accountability, or incentive settlement) that
+cannot be met with lighter-weight peer-to-peer coordination
+and cryptographic primitives alone.
+III. R ESEARCH METHOD
+We have chosen to follow the Preferred Reporting Items
+for Systematic Reviews and Meta-Analyses (PRISMA) guide-
+lines [78] for conducting our review. Our approach consists of
+three primary steps.
+(i) Identifying relevant works : We find relevant articles
+by conducting a comprehensive literature search and
+screening titles, abstracts, and full-text articles.
+(ii) Appraising study quality : We validate the quality of
+the included studies, taking into account factors such as
+study design, methodology, and potential biases.
+(iii) Synthesizing findings and drawing conclusions : We
+synthesize the findings from the included studies and
+draw meaningful conclusions.
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 7
+By following these steps, we aim to ensure a rigorous and
+comprehensive review process.
+A. Research Questions
+In this survey, we begin by formulating a concise set of
+research questions (RQs) to guide our review of the DFL
+literature. The RQs are reported below as a list and are answered
+throughout the paper to structure the discussion and ensure
+consistent coverage of the main aspects considered in our
+taxonomy and comparative analysis.
+• Motivation and problem framing
+– RQ1: What is the centralized orchestration problem
+in FL, and what changes when the server is removed?
+• Taxonomy and design space
+– RQ2: What are the main architectural families of
+decentralized FL, and how can existing approaches
+be organized under a unified taxonomy?
+• Empirical practice
+– RQ3: How is DFL evaluated in the literature, and
+what gaps emerge from current experimental practice?
+• Challenges, lessons, and directions
+– RQ4: What are the key challenge dimensions in
+decentralized FL, lessons and future directions?
+Where these RQs are addressed. RQ1 is addressed in Sec.I
+(motivation and limits of centralized orchestration) and revisited
+in Sec.IV (challenge implications). RQ2 is addressed in Sec.V
+(two-class taxonomy TD-FL vs BC-FL and challenge-driven
+organization) and supported by Fig. 3, Table II, and Fig. 4. RQ3
+is addressed by Table III and the accompanying discussion
+on evaluation coverage and limitations. RQ4 is addressed in
+Sec.IV (challenge dimensions), Sec. V (mapping works to
+dimensions), and Sec. VI (open directions and gaps).
+B. Search Process
+For the purpose of this review, we conducted a search
+within a specific time frame spanning from 2018 to early 2026,
+with a focus on DFL. We utilized several common databases,
+including IEEE Xplore, ScienceDirect, ACM Digital Library,
+and Google Scholar, employing advanced search options and
+boolean expressions (AND, OR).
+We paid special attention to the exclusion of articles that
+did not align with the scope of this survey. To provide an
+overview of the article selection process and the statistics of
+articles considered in this survey, we present the PRISMA flow
+diagram in Fig. 2. Each stage of the diagram is discussed in
+detail in the following sections.
+C. Inclusion/Exclusion Criteria
+The criteria prioritize the inclusion of articles that (i)
+address the centralized orchestration problem, (ii) clearly
+define themselves as decentralized frameworks, (iii) delegate
+aggregation to peers rather than a central entity, and (iv)
+propose a substantive architectural or algorithmic novelty
+beyond incremental variants.
+Fig. 2: Selection process of articles with the PRISMA flow
+diagram.
+During the keyword search, articles were collected based
+on the presence of specific terms, even if mentioned only
+once in the paper. However, articles that did not meet the
+predetermined criteria or were deemed irrelevant were excluded
+from the review. Examples of excluded articles encompass those
+that lacked decentralization or exhibited hybrid characteristics,
+studies that did not focus on decentralization and centralized
+orchestration problems, or those that lacked novelty. The
+inclusion and exclusion process is depicted in Fig. 2.
+A total of 123 articles were retrieved from the specified
+databases. After removing duplicates, 92 articles remained
+for further analysis. These articles underwent two rounds of
+screening. Initially, the titles and abstracts were meticulously
+reviewed, resulting in the exclusion of 36 articles. Subsequently,
+the full texts of the remaining 56 articles were thoroughly
+examined, leading to the disqualification of an additional 21
+papers. Ultimately, 35 articles were identified from the initial
+pool of 123 articles and included in the final review.
+D. Data Extraction
+The data collection process was centered on addressing the
+research questions of our study. Each of the 35 articles was
+individually examined, and distinct data points were extracted
+to inform our findings. The collected data were systematically
+recorded in a spreadsheet. The following information was
+extracted from each article:
+(i) Document title, publication year, and the name of the
+journal/conference in which it was published.
+(ii) Details of the datasets used and the federated settings in
+which they were employed.
+(iii) Identification of whether the implementation uti-
+lized “standard” distributed computing approaches or
+blockchain technology.
+(iv) The algorithms employed for training ML models.
+(v) Performance metrics, main results, and limitations.
+By gathering this information, we aimed to obtain a comprehen-
+sive understanding of the articles’ content and to extract relevant
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 8
+data points for analysis to address our research questions
+effectively.
+IV. C HALLENGES OF DECENTRALIZED FL
+In this section, we discuss the primary challenges of DFL,
+which we categorize into the following groups: (i) fault
+tolerance, (ii) bandwidth utilization, (iii) data heterogeneity,
+(iv) adversarial attacks, and (v) lack of incentive mechanisms .
+A. Fault Tolerance
+By eliminating reliance on a central server, DFL solves the
+single point of failure problem. However, its decentralized
+nature introduces unique challenges in fault tolerance, i.e.,
+the system’s ability to recover from client failures or network
+disruptions.
+Participants operate in dynamic environments where device
+disconnections, power constraints, or network latency lead
+to partial participation in training rounds. Unlike centralized
+FL, where a server orchestrates updates, DFL’s P2P structure
+and intrinsic unreliability of nodes complicate recovery from
+such failures. For instance, in a network resembling a line
+topology, if a node located in the middle fails, the network
+splits until the node becomes available again. Consequently,
+neighboring participants may not receive model updates for
+several rounds [36].
+B. Bandwidth Utilization
+Scalability in DFL hinges on efficient communication across
+participating nodes. In fully connected topologies, each client
+communicates with all peers, leading to O(n2) message
+complexity for n clients (compared to O(n) cost for a standard
+FL settings), a prohibitive cost for large networks.
+C. Data Heterogeneity
+In the context of FL, non-IID data refers to scenarios where
+the data distribution varies significantly across participating
+clients. Unlike traditional centralized ML, where training data
+typically follows a uniform distribution, FL systems operate
+in environments where each client generates or collects data
+based on unique user behaviors, preferences, and contexts.
+This inherent heterogeneity manifests in various forms of
+distribution skew. For instance, in cross-device scenarios
+involving smartphones or IoT devices, each unit captures
+data within its distinct operational environment. Similarly,
+in cross-silo applications involving different organizations or
+departments, the data often exhibits significant distribution
+differences based on organizational functions and user.
+Recent studies have identified that inconsistencies in client
+loss landscapes primarily cause performance degradation in non-
+IID scenarios [79]. When clients optimize their local models on
+divergent data distributions, they navigate different optimization
+trajectories, leading to conflicting update directions that hinder
+global convergence. This phenomenon, often termed client drift,
+causes local models to become increasingly specialized to their
+particular data distributions while diverging from the optimal
+global solution.
+The fundamental optimization objective in FL involves
+finding parameters that perform well across all client dis-
+tributions simultaneously. However, with non-IID data, the
+optimization landscape becomes more complex, featuring
+multiple local minima that may be optimal for individual
+clients but suboptimal for the collective. This creates tension
+between local optimization and global performance, particularly
+in decentralized settings where no central coordinator exists to
+harmonize these conflicting objectives [79].
+D. Adversarial Attacks and Privacy
+Traditional FL faces a range of adversarial attacks. These
+attacks manifest in different forms and can adversely affect
+output accuracy, disrupt model convergence, and even result
+in unacceptable denial-of-service (DoS) for both servers and
+users. Similar threats are also shared by DFL approaches.
+One major challenge is the presence of possibly malicious
+nodes. These intentionally join the network to exploit P2P
+networking characteristics and harm the system. They may flood
+other nodes with random or redundant data and collaborate with
+other malicious actors to execute DoS attacks. These malicious
+nodes pose a significant security and reliability challenge to the
+DFL process; thus, if designers do not impose access control
+(or equivalently, if the access control protocol is faulty), any
+malicious actor can join the network and tamper with the
+learning process.
+The creation of federated models involves aggregating model
+updates submitted by participants. However, to protect the
+confidentiality of training data, the aggregator has no visibility
+into how these updates are generated. This limitation makes
+DFL susceptible to several kind of poisoning attacks that
+aim to detriment the accuracy of the global model by either
+polluting the training set of some nodes with maliciously
+crafted examples (data poisoning [28]–[30], [80]), or by directly
+manipulating the model weights before they arrive to the aggre-
+gator (model poisoning [25]–[27], [81]). Furthermore, while in
+standard FL only the server has access to the model parameters
+sent by the clients, in DFL, every participant has access to
+them. This can be exploited by malicious actors to carry on
+Membership Inference [21] or Data Reconstruction [22]–[24]
+attacks, where the private training set can be inferred from
+model parameters, posing significant risks to the users’ privacy.
+E. Incentive Mechanisms
+Another problem is the lack of an incentive mechanism for
+the devices that participate in the DFL task. In a large-scale FL
+system, all devices want to participate in the learning process
+and improve their local model with the help of a federation.
+Since the aggregation of local updates costs computation
+power, it is necessary to choose devices with high-quality
+data and high computation power. Overall, incentives in FL
+serve as catalysts for addressing resource constraints, security
+concerns, data quality, and participant engagement. They help
+create a mutually beneficial environment where participants
+are motivated to contribute their resources and data, leading
+to improved training performance and the overall success of
+FL. Furthermore, since we have cross-silo and cross-device
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 9
+Traditional Distributed FL
+Blockchain-based FL
+2018 2019 2020 2021 2022 2023 2024 2025 2026
+[84] [85]
+[86]
+[87]
+[88]
+[89]
+[90]
+[91]
+[92]
+[93]
+[94]
+[95]
+[96]
+[97]
+[98]
+[99]
+[100]
+[101]
+[102]
+[103]
+[104]
+[105]
+[106]
+[107] [108]
+[109]
+[110]
+[111]
+[112]
+[113]
+[114]
+[115]
+[116]
+[117]
+[118]
+Fig. 3: Timeline of the works included in our taxonomy, grouped by publication year and categorized as traditional DFL (top)
+versus blockchain-based FL (bottom). The distribution highlights that blockchain-based proposals are concentrated mainly in
+2019–2022 within our corpus, whereas traditional DFL continues to attract sustained research activity in later years (2023–2025),
+reflecting a shift of emphasis toward lighter-weight P2P coordination and direct mechanisms for robustness, heterogeneity,
+privacy, and communication efficiency.
+systems as defined in Section II, we have different reasons to
+create an incentive mechanism.
+There are two main reasons why incentives are useful in
+cross-device FL [82]. Firstly, privacy concerns and reluctance
+to dedicate computing resources can discourage mobile users
+from participating in DFL. Secondly, the current DFL approach
+rewards participants with the same global model, regardless of
+their contributions. This lack of differentiation may discourage
+active participation. Incentives can address these issues by
+providing reassurance regarding privacy and compensating
+participants based on their level of contribution, thereby
+motivating more active and engaged involvement in DFL.
+In cross-silo FL [83], organizations can choose their pro-
+cessing capacity for local training. This decision affects the
+accuracy of the global model and the computational costs
+incurred. Communication costs depend on the frequency of
+model updates exchanged with the central server. However,
+organizations may have different valuations of precision and
+varying computational and communication costs. To promote
+efficient cooperation and maximize social welfare, an incentive
+mechanism is needed to motivate organizations, even if they
+are independent and driven by self-interest. This mechanism
+should align individual interests to maximize overall welfare
+in cross-silo FL.
+V. A T AXONOMY OF DECENTRALIZED FL A PPROACHES
+Several attempts have been made to overcome the limitations
+posed by the centralized orchestration of standard FL. In this
+section, we present the most relevant approaches toward DFL
+proposed in the literature.
+We, first, broadly categorize existing methods into the
+following two-class taxonomy:
+• Traditional Distributed (TD-FL): Methods in this class
+obtain FL decentralization through “standard” distributed
+computing techniques.
+• Blockchain-based (BC-FL): This class contains all the
+approaches that achieve FL decentralization by exploiting
+blockchain functionalities.
+Then, we segment the literature into the main objectives which
+the studies aim to tackle (Table II).
+Figure 3 provides a chronological view of the works included
+in our taxonomy, separated into traditional DFL and blockchain-
+based FL. A clear pattern emerges: BC-FL is concentrated
+in a relatively narrow window (roughly 2019–2022), after
+which the stream of novel proposals in our corpus largely
+disappears, while TD-FL continues to grow through 2024–2025
+with multiple new directions.
+This does not necessarily mean that blockchain-based FL has
+“failed”, but it does suggest that it has not remained an active
+primary research thrust for DFL. A plausible interpretation is
+that, once the community clarified the trade-offs, blockchains
+were increasingly treated as an enabling component for
+specific requirements (e.g., auditability, accountability, incentive
+settlement) rather than as a default substrate for decentralization.
+In many settings, the additional overheads introduced by the
+blockchain (see Section II-C) can be hard to justify compared
+to lighter-weight P2P coordination, especially when the core
+FL bottlenecks are communication and system heterogeneity
+rather than the absence of a ledger. As a result, research
+attention appears to have shifted toward more direct solutions
+to robustness, heterogeneity, privacy, and communication
+efficiency in fully decentralized settings, which remain open
+and evolving.
+Table II provides a compact cross-paper view of which
+challenges are explicitly targeted in the DFL literature. A
+clear pattern is that TD-FL works increasingly emphasize
+communication/bandwidth efficiency and heterogeneity han-
+dling, often accompanied by stronger theoretical analyses,
+whereas BC-FL works more frequently motivate security and
+auditability goals. Overall, the table highlights that only a subset
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 10
+Category Work Fault Tolerance Privacy Security Incentive
+Mech.
+Data
+Heterog.
+Bandwidth
+Utiliz.
+Theory
+& Task Ext.
+Resource
+Eff.
+IPLS [87] # # # # # # G #
+DFL-UN [88] # # # # # # #
+DSpodFL [101] # # # G # # G # #
+ProxyFL [94] # # # # G # # #
+PVD-FL [90] # G # # # # # #
+f-Differential Privacy [103] # # # # # G # #
+ERIS [105] # # # # G # # G #
+Trusted DFL [91] # # # # # # #
+BALANCE [98] # # # # # G # #
+BR-DFL [106] # # # G # # #
+SelfishAttack [100] # # # # # # #
+Combo [86] # # # # # # #
+GossipFL [95] # # # # # # #
+Def-KT [89] # # # # # # #
+P2P FL over graphs [92] # # # # # G # #
+PANM [93] # # # # G # G # #
+DeSA [99] # # # # # # #
+NTK-DFL [102] # # # # G # # #
+FDFL [84] # # # # # # #
+BrainTorrent [85] G # # # # # # #
+Sharp Gaussian approximations [104] # # # # # # #
+Statistical inference for DFL [97] # # # # G # # #
+TD-FL
+Excalibur [96] # G # # # # G # G #
+FED-BC [108] # # # # # # #
+GFL [111] # G # # # # # #
+Privacy-Preserving for IoT Devices [112] # G # # # # # #
+DeepChain [114] # G # # # # #
+Biscotti [115] # # # # # #
+BytoChain [113] # # # # # # #
+PIRATE [107] # # # # # # #
+Trustworthy FL [118] # # # # # # #
+BlockFL [109] # # G # # # # G #
+FedCoin [110] # # # # # # #
+BAFL [116] # # G # G # # # # 
+BC-FL
+BLADE-FL [117] # G # # G # # # # 
+TABLE II: This table summarizes the main challenges addressed by the DFL works included in this survey. Each row corresponds
+to a method, grouped by traditional DFL (TD-FL) and blockchain-assisted DFL (BC-FL); columns indicate whether the paper
+explicitly tackles ( ) or partially considers ( G #) key dimensions—fault tolerance, privacy, security, incentive mechanisms, data
+heterogeneity, bandwidth utilization, theoretical/extension aspects, and resource efficiency.
+of approaches address multiple dimensions simultaneously,
+suggesting that designing DFL systems that are secure, privacy-
+preserving, robust to faults/adversaries, and communication-
+efficient remains largely an open problem.
+Table III highlights a strong concentration of empirical
+evidence around a small set of benchmark datasets and
+relatively standard model families. Across both TD-FL and
+BC-FL, most evaluations rely on horizontal partitioning, with
+vertical FL appearing only sporadically, and a recurring use
+of MNIST/FMNIST/CIFAR-style benchmarks. This evidence
+may overestimate practical readiness, since many studies are
+validated on small, clean benchmarks rather than realistic,
+heterogeneous, resource-constrained deployments. Overall, the
+table motivates a need for more standardized and transparent
+evaluation protocols for DFL, including consistent reporting
+of partitioning schemes and broader coverage of real-world
+datasets and models.
+Figure 4 links the survey organization to the literature:
+each column corresponds to a challenge dimension (and the
+section where it is discussed), and the listed papers are
+representative works whose primary contribution targets that
+dimension. The color split (TD-FL vs. BC-FL) highlights a
+qualitative specialization: BC-FL concentrates, in proportion,
+on security and incentive mechanisms where a ledger can
+provide auditability, whereas TD-FL spans a broader set of
+system-centric problems—especially heterogeneity handling,
+communication efficiency, and theory/task extensions—that
+have continued to evolve in the most recent years. This mapping
+also exposes gaps in coverage, which we revisit as open
+problems later in the survey.
+A. Traditional Distributed FL (TD-FL)
+A possible solution to overcome the limitations of centralized
+FL is to adopt decentralized frameworks inspired by traditional
+distributed computing technologies, such as P2P networks.
+In this work, we classify existing contributions falling
+into this category into six groups: fault-tolerance, privacy
+and security , data heterogeneity, bandwidth utilization , and
+theory/task extensions. These categories represent the authors’
+main contributions; however, it is important to note that an
+article categorized into one group may also solve (in part)
+issues belonging to other groups, as shown in Table II.
+1) Fault-tolerance: In DFL, fault tolerance is mainly chal-
+lenged by churn (nodes joining/leaving), intermittent or unreli-
+able links, and the absence of a stable coordinator that can en-
+force participation, retransmissions, or global synchronization.
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 11
+CategoryWork Model Data Partitioning Dataset
+TD-FL
+IPLS [87] NN Vertical, IID MNISTDFL-UN [88] CNN Horizontal, Non-IIDN/ADSpodFL [101] SVM, VGG11 Horizontal, IID, Non-IIDCIFAR-10, FMNISTProxyFL [94] NN, CNN Horizontal, IID, Non-IIDMNIST, FMNIST, CIFAR-10PVD-FL [90] NN Vertical, IID MNIST, Thyroid, Breast Cancer, German Creditf-Differential Privacy [103] Logistic Regression, CNN Horizontal, Non-IIDUCI housing, MNIST, a9a, syntheticERIS [105] GPT-Neo, DistilBERT, ResNet-9, LeNet-5Horizontal, IID, Non-IIDCNN/DailyMail, IMDB, CIFAR-10, MNISTTrusted DFL [91] NN Horizontal, Non-IIDN/ABALANCE [98] CNN Horizontal, Non-IIDMNIST, FMNIST, HAR, CelebABR-DFL [106] ResNet-18 Horizontal, IID, Non-IIDGTSRB, CIFAR-10, EMNISTSelfishAttack [100] CNN, LSTM Horizontal, Non-IIDCIFAR-10, FEMNIST, Sent140Combo [86] CNN Horizontal, IID CIFAR-10GossipFL [95] CNN, ResNet-20 Horizontal, IID, Non-IIDMNIST, CIFAR-10Def-KT [89] NN, CNN Horizontal, IID, Non-IIDMNIST, FMNIST, CIFAR-10, CIFAR-100P2P FL over graphs [92] Bayesian Linear Regression Horizontal, Non-IIDMNIST, FMNIST, FEMNISTPANM [93] NN, CNN Horizontal, Non-IIDMNIST, FMNIST, CIFAR-10DeSA [99] AlexNet, CNN Horizontal, Non-IIDMNIST, SVHN, USPS, SynthDigits, MNIST-M, Amazon, Caltech, DSLR, Webcam, CIFAR10CNTK-DFL [102] MLP Horizontal, IID, Non-IIDMNIST, FMNIST, FEMNISTFDFL [84] N/A Horizontal, Non-IIDN/ABrainTorrent [85] Quicknat Horizontal, Non-IIDMALCSharp Gaussian approximations [104]Linear Classifier Horizontal, Non-IIDMNISTStatistical inference for DFL [97]Linear Regression, Logistic RegressionHorizontal, Non-IIDSynthetic
+TD-FL
+Excalibur [96] SVD Vertical, Non-IID MNIST, Wine, ML100K, synthetic
+BC-FL
+FED-BC [108] NN Horizontal, Non-IIDMNISTGFL [111] CNN Horizontal, Non-IIDMNIST, CIFAR-10, CIFAR-100Privacy-Preserving for IoT Devices [112]CNN Horizontal, IID MNISTDeepChain [114] CNN Horizontal, IID MNISTBiscotti [115] Linear Regression, Softmax ClassifierHorizontal, IID Credit Card Fraud, MNISTBytoChain [113] CNN Horizontal, IID MNISTPIRATE [107] NN Horizontal, IID N/ATrustworthy FL [118] NN, CNN, AlexNet Horizontal, IID, Non-IIDMNIST, CIFAR-10, HeartActivityBlockFL [109] NN Horizontal, IID N/AFedCoin [110] N/A Horizontal, IID MNISTBAFL [116] CNN Horizontal, IID MNIST
+BC-FL
+BLADE-FL [117] NN, VGG11 Horizontal, Non-IIDMNIST, CIFAR-10, FMNIST, SVHN
+TABLE III: This table reports the experimental setups used by the DFL works surveyed in this paper. For each method (grouped
+into TD-FL and BC-FL), we list the model family, the data partitioning setting (horizontal/vertical; IID/non-IID), and the
+datasets adopted in the empirical evaluation.
+TD-FL works tackle these issues by designing decentralized
+mechanisms that keep model information flowing despite partial
+connectivity: some rely on P2P dissemination layers that make
+model states retrievable even when peers disconnect, while
+others use neighbor-based aggregation and repeated broadcasts
+so updates can propagate opportunistically through the network.
+The works below exemplify these directions in different
+environments, from generic P2P overlays to highly dynamic
+UA V swarms, and from system-oriented designs to algorithmic
+models of sporadic computation and communication.
+IPLS [87]. IPLS is a fully decentralized DFL framework
+built on interplanetary file system [120] (IPFS), designed
+to support open participation and robustness to churn and
+intermittent connectivity. Nodes fetch and publish model
+artifacts through the P2P storage layer, enabling training to
+progress without a fixed coordinator; experimentally, accuracy
+approaches centralized baselines with minimal loss under the
+considered settings. Its limitations are mostly system-level:
+the evaluation is still narrow (device heterogeneity and large
+modern models are not explored) and the approach inherits
+practical overheads/assumptions from the underlying content-
+addressed networking layer.
+DFL-UN [88]. DFL-UN studies decentralized FL in UA V
+networks, where links are unreliable and topology changes
+quickly. Each UA V trains locally, aggregates models from one-
+hop neighbors, and broadcasts the updated model, avoiding a
+single point of failure and adapting naturally to link disruptions.
+The main limitations are that robustness/convergence is evalu-
+ated in small-scale settings and the design must cope with real
+UA V constraints (rapid mobility, unstable wireless channels,
+and transient connectivity) that can hinder stable convergence
+and timely model propagation.
+DSpodFL [101]. DSpodFL targets intermittent links between
+nodes in DFL by modeling that peers may not compute or com-
+municate at every step. It introduces a unified update rule where
+local training and neighbor exchanges are governed by indicator
+variables (capturing sporadic computation/communication), so
+several classical decentralized methods emerge as special
+cases. The paper provides convergence guarantees and shows
+improved time-to-accuracy in heterogeneous settings.
+Main limitations are that the sporadicity processes are
+abstracted as indicator variables (so the practical benefit
+depends on how well they match real scheduling/link dynamics),
+and the empirical validation is limited to a small set of vision
+tasks/models (FMNIST/CIFAR10 with relatively standard
+classifiers), leaving broader workloads and deployment-driven
+constraints for follow-up work.
+2) Privacy: In DFL, nodes must exchange models/updates
+to coordinate, which can leak information about local data
+even when raw data never leave devices. TD-FL privacy
+mechanisms therefore aim to reduce what each message reveals,
+mainly via (i) proxy/public representations (ProxyFL [94]), (ii)
+cryptographic confidentiality with verifiability (PVD-FL [90]),
+(iii) decentralized DP accounting/noise tailored to networked
+communication (f-DP [103]), and (iv) update sharding across
+multiple aggregators (often coupled with compression) to limit
+any single observer’s view (ERIS [105]).
+ProxyFL [94]. In this scheme, participants maintain two
+separate models: a private model and a publicly shared proxy
+model. The purpose of the proxy model is to protect the privacy
+of individual participants by not sharing the private model while
+also enabling efficient information exchange without the need
+for a centralized server. Key advantages of ProxyFL include
+reduced communication overhead and enhanced privacy protec-
+tion. Participants can have their private models with different
+architectures, promoting model heterogeneity. Experimental
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 12
+Fault Tolerance Privacy Security Incentive
+Mechanisms
+Data Heterogeneity Bandwidth
+Utilization Theory & Task Ext. Resource Effic.
+IPLS [87]
+DFL-UN [119]
+DSpodFL [101]
+FED-BC [108]
+GFL [111]
+ProxyFL [94]
+PVD-FL [90]
+f-DifferentialPrivacy [103]
+ERIS [105]
+Privacy Preserving for
+IoT Devices [112]
+DeepChain [114]
+Biscotti [115]
+Trusted DFL [91]
+BALANCE [98]
+BR-DFL [106]
+SelfishAttack [100]
+BytoChain [113]
+PIRATE [107]
+Trustworthy FL [118]
+BlockFL [109]
+FedCoin [110]
+Def-KT [89]
+P2P FL over graphs [92]
+PANM [93]
+DeSA [99]
+NTK-DFL [102]
+Combo [86]
+GossipFL [95]
+FDFL [84]
+BrainTorrent [85]
+Sharp Gaussian
+approximations [104]
+Statistical inference
+for DFL [97]
+Excalibur [96]
+BAFL [116]
+BLADE-FL [117]
+Fig. 4: Mapping between the survey structure and the taxonomy in Table II. Each column corresponds to (i) a main challenge
+dimension in DFL and (ii) the dedicated section where that dimension is discussed in the survey. Within each column, blue boxes
+denote TD-FL works and red boxes denote BC-FL works, listing representative papers that primarily address that challenge.
+results on image datasets and a cancer diagnostic problem
+show that ProxyFL outperforms existing alternatives in terms
+of communication efficiency and convergence speed.
+PVD-FL [90]. PVD-FL primarily addresses privacy and
+verifiability in decentralized FL: it aims to keep both the
+global model and local updates confidential during training,
+while allowing peers to verify that training computations
+are carried out correctly (mitigating faulty/lazy behavior)
+without relying on a trusted server. Methodologically, the
+framework is built on an efficient verifiable cipher-based
+matrix multiplication primitive, which enables encrypted linear-
+algebra operations with correctness checks and is then used to
+implement decentralized training steps. Its main limitations are
+in scope and assumptions: the design focuses on confidentiality
+and correctness of computation, but does not directly handle
+data/model poisoning (acknowledged as a future direction),
+and it relies on simplifying system settings (e.g., non-collusion
+and IID data) while incurring cryptographic overhead.
+f-Differential Privacy [103]. The paper investigates privacy
+accounting methods for differentially private DFL. They focus
+on two DFL algorithms within the f-DP framework and propose
+two new ways of quantifying privacy leakage that better support
+decentralized communication and noise structure.
+The authors introduce two f-DP notions tailored to decen-
+tralized settings: (i) Pairwise Network f-DP, which quantifies
+privacy leakage between user pairs under random-walk style
+decentralized communication; and (ii) Secret-based f-local DP,
+enabling structured/correlated noise injection via shared secrets.
+They combine f-DP tools with Markov-chain concentration to
+capture privacy amplification effects due to sparse communica-
+tion, local iterations, and correlated noise, and they empirically
+show improved utility (or tighter (ϵ, δ) bounds at comparable
+utility) vs. Rényi DP-based accounting.
+The practical value depends on whether the assumed com-
+munication mechanism (e.g., random-walk mixing) and any
+shared-secret structure match real deployments, and whether
+implementers can actually enforce the noise/secret assumptions
+consistently across peers.
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 13
+ERIS [105]. ERIS is a serverless FL framework targeting
+privacy leakage and communication overhead for large models.
+It decentralizes aggregation via gradient partitioning across
+multiple client-side aggregators (so the update remains math-
+ematically equivalent to FedAvg, while reducing the amount
+of visible model parameters to attackers) and pairs this with
+distributed shifted gradient compression to cut transmitted
+payloads while preserving convergence guarantees.
+Privacy improves because no single aggregator observes a
+full update: leakage decreases as the number of aggregators
+grows, and experiments report reduced membership-inference
+and reconstruction effectiveness. Key limitations are that
+privacy weakens under aggregator collusion, and robustness to
+model/data poisoning is not a core part of the framework (left
+for future work).
+3) Security: Without a trusted server, DFL must tolerate
+malicious peers that poison updates or collude to evade local
+defenses. Most TD-FL security mechanisms act locally at
+aggregation time: nodes infer neighbor reliability directly from
+received models (e.g., distance- or clustering-based consistency)
+and then downweight or discard suspicious updates (Trusted
+DFL [91], BALANCE [98]). Complementarily, BR-DFL [106]
+targets backdoor resilience by using knowledge distillation
+with adaptive teacher selection to suppress trigger-specific
+behavior. Finally, SelfishAttack [100] highlights a different
+threat model—strategic insiders optimizing for personal advan-
+tage rather than global failure—showing that robustness must
+also consider incentive-driven manipulation beyond classic
+poisoning.
+Trusted DFL [91]. This work targets security, focusing on
+robustness to model poisoning. Each node maintains a trust
+score for its neighbors and uses it to downweight suspicious
+updates during the local aggregation step. Concretely, trust
+is inferred directly from received models using distance-
+and clustering-based consistency checks (e.g., comparing a
+neighbor’s update to other received updates, or verifying
+that the neighbor’s model moves closer over time), and
+then propagated/aggregated through the network via a trust-
+aggregation mechanism; the resulting trust values modulate
+how much each neighbor contributes to the node’s next iterate.
+A key limitation is that the defense is heuristic and topology-
+/threshold-dependent: adversaries that adapt to the similarity
+tests, collude, or poison in a stealthier way can erode its
+effectiveness, and the paper mainly validates against a sim-
+ple random noise model poisoning setup under simplifying
+assumptions (e.g., IID data).
+BALANCE [98]. The authors study DFL in the presence
+of poisoning Byzantine attacks (data/model poisoning, tar-
+geted/untargeted, and adaptive attacks). They identify that
+existing DFL methods lack robustness against such attacks
+and propose a new algorithm that allows nodes to filter out
+possible malicious peers.
+The proposed method filters neighbor updates before aver-
+aging: each client uses its own current model as a similarity
+reference to score received models and exclude likely-malicious
+ones. The paper proves convergence under poisoning in strongly
+convex and non-convex regimes, with rates matching strong
+baselines in attack-free cases, and reports extensive experiments
+where BALANCE improves robustness relative to prior DFL
+methods under poisoning.
+However, BALANCE assumes the client’s own model
+remains a reliable similarity baseline; in extreme non-IID
+or in topologies where a client’s neighbors are mostly very
+different (or malicious), the filtering signal may be unreliable
+and information flow can be impeded. The method can also
+inherit topology sensitivity because “who you see” determines
+what you can accept, given that the authors assume a fixed
+topology.
+BR-DFL [106] BR-DFL is a backdoor-resilient DFL frame-
+work that does not rely on prior knowledge of attack types or
+the amount of malicious nodes. Unlike conventional defense
+approaches, in BR-DFL benign clients distill knowledge from
+peer models using their own clean local data. The key insight
+is that backdoored models behave normally on clean inputs;
+by performing knowledge distillation on trigger-free local
+data, benign clients transfer only clean predictive behavior,
+while backdoor behaviors are never activated and therefore
+not distilled. The paper also introduces a multi-armed bandit
+mechanism for adaptive teacher selection. Each benign node
+learns which peers provide the most distributionally aligned and
+informative knowledge, balancing exploration and exploitation.
+Empirically, BR-DFL achieves consistently low attack success
+rates across both data- and model-poisoning attacks and
+remains effective even under extreme malicious ratios ( > 50%).
+However, it introduces a non-trivial computational overhead
+given by the forward inference on the teacher models and the
+knowledge distillation process; moreover, the performance on
+attacks that target knowledge distillation [121] is unknown.
+SelfishAttack [100]. The paper identifies a class of insider,
+strategic attacks in DFL where malicious clients do not
+necessarily want to collapse global performance; instead,
+they want their own models to end up better than others’
+by manipulating what they send to non-selfish peers. The
+authors formalize SelfishAttack as an optimization problem
+that balances attackers’ own utility and the degradation of non-
+selfish clients post-aggregation, and they derive closed-form
+optimal solutions for several aggregation rules. Empirically,
+they show larger attacker-favored accuracy gaps than standard
+poisoning baselines when adapted to the same objective.
+The attack’s power is closely tied to the aggregation rules; for
+example, formal solutions cannot be derived for non-coordinate-
+wise aggregation rules. Another point is that peers are assumed
+to use the same aggregation strategy, while in real applications
+they may employ different methods. In this scenario, it is
+plausible to suppose that peers may also change aggregation
+rules over time and that this information is held secretly.
+4) Bandwidth utilization: In DFL, nodes exchange updates
+with peers rather than a server, so communication can dominate
+runtime—especially under dense topologies and heterogeneous,
+bandwidth-limited links. This makes bandwidth utilization a
+key scalability bottleneck.
+The works in this subsection reduce communication by
+limiting peer interactions (gossip-style exchanges), selecting
+neighbors in a bandwidth-aware way, and shrinking payloads
+via compression or model segmentation (i.e., exchanging only
+parts of the model).
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 14
+Combo [86]. Combo targets bandwidth utilization in DFL
+by reducing synchronization bottlenecks and exploiting par-
+allel node-to-node transfers without sacrificing convergence.
+Methodologically, it uses a segmented gossip strategy: the
+model is split into equal-size parameter blocks, and each worker
+exchanges and aggregates only the corresponding segments
+with a small subset of peers; a “model replica” mechanism
+is introduced to improve information mixing across iterations.
+Experiments show faster training with limited accuracy loss
+under practical bandwidth/topology settings, and improved
+convergence behavior compared to FedAvg.
+Its main limitations are that segmentation and replica
+management add coordination/engineering complexity, and
+performance depends on how segments are scheduled and
+mixed across the network (e.g., small peer degree or unfavorable
+connectivity can slow information propagation).
+GossipFL [95]. GossipFL targets bandwidth-efficient decen-
+tralized training by reducing both the number of peer exchanges
+and the size of transmitted updates, while still aiming to
+preserve convergence. Methodologically, it combines (i) strong
+model sparsification so that each client exchanges a highly
+compressed update with only one peer per round, and (ii)
+a “gossip matrix” that assigns peer contacts based on link
+capacities to better utilize available network resources.
+Its main limitations are architectural and assumption-driven:
+peer selection is coordinated by a central entity (making the
+system hybrid rather than fully decentralized), and the gains
+depend on having reliable bandwidth estimates and on how
+well the sparsification level matches the learning dynamics
+under non-IID data.
+5) Data heterogeneity: Data heterogeneity is the non-IID
+regime where each node trains on a biased local distribution;
+in DFL, repeated neighbor-only aggregation can amplify this
+bias, making naive parameter averaging prone to client drift
+and slower convergence [122].
+TD-FL works mainly mitigate this without sharing raw data
+by (i) replacing averaging with knowledge transfer, and/or (ii)
+adapting the communication graph so nodes aggregate mostly
+from similar peers. A complementary line uses probabilistic
+updates over arbitrary graphs, exchanging posterior information
+instead of full models
+Def-KT [89]. Def-KT targets data heterogeneity in DFL,
+specifically mitigating client drift that arises when peers
+fuse models by parameter averaging under non-IID data,
+which can slow/unstabilize convergence and degrade accuracy.
+Methodologically, Def-KT performs mutual knowledge transfer:
+in each round, a subset of clients locally trains via SGD and
+sends its updated model to another randomly chosen client; the
+receiver then fuses the received and local models by making
+them match each other’s soft predictions on the receiver’s
+local data, and stores the fused result as its new local model.
+Limitations include added computation at the receiver, reliance
+on assumptions that simplify the system (a round structure
+where some clients only send and others only receive), and the
+lack of a communication-efficient variant or a full theoretical
+treatment in the paper (explicitly left as future work).
+P2P FL over graphs [92]. This work targets statistical
+heterogeneity in fully DFL by replacing point-model averaging
+with a Bayesian, variational formulation that is well-defined
+on arbitrary connected graphs. Each node maintains a posterior
+distribution over the shared model parameters and iterates
+two steps: (i) a local variational update using its own labeled
+data batch, and (ii) neighbor communication followed by
+a consensus step that merges information via log-posterior
+averaging with graph-dependent weights. The paper provides
+convergence guarantees in the realizable setting and character-
+izes convergence rates as a function of both network structure
+(via eigenvector centrality) and local data informativeness; it
+also reports experiments (including non-IID regimes and time-
+varying/asynchronous connectivity) showing improved behavior
+over FedAvg in harder, heterogeneous settings.
+Main limitations are that the strongest theory relies on tech-
+nical assumptions (e.g., connected/aperiodic graph, bounded
+likelihood ratios) and, in practice, performance depends on the
+chosen variational family and posterior approximation. The
+method also assumes the communication weights are available
+and stable enough to support the consensus mechanism.
+PANM [93]. PANM targets data heterogeneity in DFL
+by adaptively reshaping the communication graph so that
+each node mostly aggregates updates from “similar” peers,
+effectively inducing clustered training and improving personal-
+ization without assuming the number of clusters in advance.
+Methodologically, it is a two-stage neighbor-selection pipeline:
+first, each node builds a candidate neighbor pool using a
+gradient-based similarity score plus Monte Carlo exploration
+to reduce the risk of missing true peers; then it refines this
+pool with an EM-based Gaussian mixture model that separates
+likely in-cluster neighbors from outliers and augments/prunes
+the neighborhood accordingly. The resulting adaptive topology
+is used to run decentralized training where information flows
+primarily within clusters.
+Its main limitations are that it relies on similarity estimates
+computed from local updates, which can be noisy under small
+local datasets, strong non-IID regimes, or rapidly drifting
+models, and it introduces extra coordination overhead (sampling
+rounds, EM fitting) before reaching a stable neighborhood.
+The Gaussian-mixture assumption may be a poor fit when
+similarities are multi-modal or adversarially manipulated,
+and poisoning/Sybil-style behavior can distort neighborhood
+discovery unless PANM is paired with explicit robustness
+mechanisms.
+DeSA [99]. This work addresses the lack of a global model
+in DFL by synthesizing global anchor objects that encode
+shared distributional information, then using these anchors to
+regularize local training and enable mutual knowledge transfer
+across clients.
+The method, DeSA, synthesizes anchors based on raw data
+distributions and introduces two training terms: a regularization
+loss that aligns each client’s latent embedding distribution with
+anchors, and a KD-based mechanism that lets clients learn
+from each other. The paper motivates the approach through
+domain-adaptation/KD perspectives and reports improved inter-
+and intra-domain accuracy across heterogeneous settings.
+About the limitations, the anchor synthesis introduces
+computational and communication overhead, and the qual-
+ity/representativeness of anchors becomes an additional depen-
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 15
+dency: poor anchors can limit transfer or bias representations.
+NTK-DFL [102]. The paper proposes NTK-DFL, a DFL
+method that leverages Neural Tangent Kernel (NTK) to improve
+performance focusing on settings where client data distributions
+are heterogeneous.
+NTK-DFL uses NTK-based weight evolution together with
+model averaging across clients to exploit inter-client model
+variation, yielding faster convergence and higher accuracy
+compared to existing decentralized baselines, especially in
+heterogeneous settings. The method has been validated over
+multiple datasets, network topologies and heterogeneity levels.
+Nevertheless, NTK-based evolution requires computing and
+transmitting Jacobians in addition to weights, which comes
+with an additional overhead cost throughout the network.
+6) Theory and task extensions : In the following, we group
+TD-FL works whose main contribution is not a new com-
+munication or robustness mechanism per se, but rather (i)
+theoretical foundations and statistical characterizations beyond
+standard convergence (e.g., asymptotic normality, uncertainty
+quantification, inference), or (ii) task-level extensions that adapt
+DFL to primitives beyond gradient-based model training. These
+papers are complementary to challenge-specific methods: they
+clarify what guarantees DFL can provide and broaden the set of
+workloads that can be executed without a central coordinator.
+FDFL [84]. This approach eliminates the need for a
+centralized controller and instead focuses on collaborative
+learning through local information exchange. Specifically,
+clients adopt a Bayesian-like approach by introducing a belief
+over the model parameter space and using a distributed learning
+algorithm. Through information aggregation from neighbors,
+users update their beliefs to learn a model that best fits the
+observations across the entire network. The framework also
+allows users to sample points exclusively from smaller sub-
+spaces within the input space.
+The paper provides high probability bounds on the worst-
+case probability of error across the network and explores
+appropriate approximations for applying the algorithm to learn
+DNN models. However, it is important to note that the work
+lacks experimental validation and is primarily a theoretical
+study. Future studies could potentially complement this work
+with empirical experiments to validate its practical performance.
+BrainTorrent [85]. BrainTorrent targets collaborative training
+across medical sites without a fixed coordinator, aiming to make
+decentralized coordination practical for a domain-specific task
+(medical image segmentation) and to keep training running
+under failures.
+Methodologically, it uses a fully connected peer set with a
+lightweight “community” routine: nodes train locally, then an
+elected peer periodically polls others for their latest models and
+merges the received subset via sample-size–weighted averaging
+(and nodes keep a small cache of last-seen models/versions to
+manage asynchronous arrivals).
+Limitations are mostly system and evaluation related: it
+assumes an expensive fully connected overlay and a single
+temporary “collector” whose failure can stall that round unless
+additional recovery logic is added; empirically, the validation
+is narrow and relies on task-specific metrics, so generality and
+scalability are not clearly established.
+Sharp Gaussian approximations [104]. This paper studies
+statistical properties of local SGD in DFL beyond convergence,
+providing Gaussian approximation results for both the final
+iterate and the entire training trajectory, with the aim of
+enabling principled uncertainty quantification and inferential
+tools. The authors prove a Berry–Esseen theorem for final local-
+SGD iterates (supporting multiplier bootstrap procedures) and
+give time-uniform Gaussian approximations for the trajectory
+(enabling trajectory-level bootstrap tests). The validation is
+primarily simulation-based.
+Statistical inference for DFL [97]. This work develops
+statistical inference theory for decentralized SGD under het-
+erogeneous client distributions, analyzing mean squared error
+and consensus error, and establishing asymptotic normality
+results that enable confidence regions in DFL. The authors
+prove asymptotic normality for the Polyak–Ruppert averaged
+estimator in decentralized settings and show that statistical
+efficiency can impose stricter constraints on the number of
+clients than in some distributed M-estimation settings. They
+propose a one-step estimator that relaxes these constraints while
+achieving comparable efficiency, and they outline how to build
+confidence regions for practical inference. However, translating
+the conditions cleanly to nonconvex deep learning practice
+(and to dynamic network topologies) remains nontrivial.
+Excalibur [96]. Excalibur is a system for performing
+federated SVD without a central server, designed to be
+communication-efficient and to avoid the heavy computational
+overhead of homomorphic encryption-based decentralized
+solutions. The goal is a practical decentralized pipeline for
+SVD that improves privacy relative to server-aided approaches
+by removing the external server, while maintaining strong
+efficiency. The paper explicitly positions itself against “server-
+aided federated SVD” and HE-based decentralized approaches.
+While lighter than HE-based implementations, the protec-
+tion mechanism still introduces overhead, and the system’s
+applicability depends on whether the SVD workload and
+communication pattern align with the assumed decentralized
+execution model.
+B. Blockchained-based FL (BC-FL)
+The integration of blockchain and FL stems from their
+shared reliance on distributed coordination, but BC-FL should
+not be seen as a drop-in replacement for the server in
+standard FL. Rather, blockchain is used as a coordination and
+accountability layer that can reduce reliance on a single trusted
+orchestrator, provide tamper-evident logging, and support
+incentive settlement.
+In BC-FL, participating nodes maintain a replicated ledger
+that records the progression of training rounds and related
+metadata. Due to size and throughput constraints, most systems
+avoid storing full model parameters on-chain; instead, they store
+hashes/commitments and pointers to off-chain storage (e.g.,
+IPFS or edge/cloud repositories), which still makes model
+artifacts broadly retrievable and auditable. Training proceeds
+by having clients compute local updates and submit them
+(or references to them) to the blockchain workflow, where
+designated miners (or committees, in permissioned settings)
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 16
+verify admissibility according to the protocol (e.g., integrity
+checks, contribution rules, or robust screening), and then
+assemble a block that commits the accepted updates and the
+resulting aggregated model state. A consensus mechanism
+selects the next block proposer, after which the new block is
+propagated and appended, and clients fetch the latest global
+model (or its reference) to continue training.
+Some BC-FL proposals additionally include reward mech-
+anisms to encourage participation or discourage low-quality
+contributions; rewards may be tied to reported sample size,
+measured utility, reputation, or other protocol-specific signals,
+with the caveat that any self-reported signal must be made
+verifiable or it becomes a manipulation surface.
+As for TD-FL, in the following section, we analyze the
+prominent BC-FL approaches proposed in the literature and
+categorize them based on the challenges that authors primarily
+aim to solve: fault-tolerance and scalability , privacy and
+security, incentive mechanisms, and resource efficiency.
+1) Fault-tolerance: In BC-FL, fault tolerance is pursued by
+replacing a single coordinator with ledger-driven coordination
+and replicated state, so that training can continue despite node
+failures and membership changes. Typical designs use (i) smart
+contracts to externalize orchestration (task control, membership,
+and key/state management) and (ii) structured topologies (often
+rings) to propagate models without a central hub, sometimes
+complemented by committee-based aggregation to provide
+redundancy and reduce the impact of unreliable peers. The
+works below follow this pattern: FED-BC [108] uses blockchain
+contracts to decentralize control and keep training alive under
+dropouts, while GFL [111] adds a trusted committee on top
+of a ring topology to stabilize coordination and provide a
+tamper-evident training log.
+FED-BC [108]. FED-BC targets decentralization and fault
+tolerance in FL by removing a central server and avoiding
+a single point of failure, while also providing auditable
+coordination through a blockchain layer. The core idea is to
+organize participants in a logical ring for model propagation,
+while using smart contracts to handle control logic and key
+management (so no single node is responsible for orchestration).
+Each node trains locally, exchanges model updates along the
+ring, and relies on the ledger/contracts to record and coordinate
+the training process, aiming to keep the system running even
+if some nodes drop out.
+Its main limitations are practical and assumption-driven:
+the approach inherits overhead from blockchain operations
+(latency, storage, and communication), and the “all nodes are
+equal” design still depends on correct smart-contract execution
+and on the ring not becoming fragmented under churn. The
+evaluation is mainly accuracy-oriented and does not deeply
+analyze adversarial behavior (e.g., poisoning) beyond the
+general robustness claims.
+GFL [111]. GFL targets fault tolerance and coordination
+in BC-FL by avoiding reliance on a single aggregator, while
+also aiming to improve communication efficiency and provide
+tamper-evident logging. Methodologically, it organizes partici-
+pants via consistent hashing into a ring topology and delegates
+aggregation to a committee of m trusted nodes that synchronize
+models around the ring for r steps. At each iteration, trusted
+nodes (i) collect local models, (ii) run a filtering/merging step
+based on knowledge distillation—each trusted node distills from
+selected peer models (e.g., those with smallest KL divergence)
+into its own model—and then (iii) compute the new global
+model via FedAvg over the m trusted nodes. Blockchain and
+IPFS are used to store model references and coordinate tasks
+through smart contracts.
+Limitations include strong trust assumptions (availabil-
+ity and honesty of the committee), extra overhead from
+blockchain/IPFS and multi-round synchronization, and an attack
+model that is only partially specified.
+2) Privacy: In BC-FL, the blockchain acts as a shared, repli-
+cated coordination layer. Depending on the design, the ledger
+can record training metadata and, in some cases, model artifacts
+themselves (global models and/or local updates) or—more
+commonly—cryptographic commitments and pointers to off-
+chain storage that make these artifacts broadly retrievable and
+auditable. This differs from TD-FL, where the visibility of
+updates is primarily determined by the communication topology
+(limited to a node’s neighborhood). As a result, BC-FL privacy
+mechanisms are motivated not only by gradient leakage, but
+also by the larger exposure surface induced by ledger-based
+coordination and validation. Notably, many BC-FL systems
+avoid storing full model parameters on-chain due to size and
+throughput constraints; instead they log hashes on-chain while
+keeping the actual updates/models off-chain, which still enables
+network-wide access for validation and audit. Accordingly, the
+BC-FL works in this subsection enhance privacy requirements
+by employing DP [112], encrypted gradients [114], and secure
+aggregation [115].
+Privacy-preserving FL for IoT devices [112]. This work
+targets privacy-aware BC-FL for smart-home IoT, aiming to let
+manufacturers learn from customer data without collecting it
+centrally, while discouraging malicious or low-quality partici-
+pants. The system uses a blockchain layer for coordination and
+logging: customers train locally (optionally with MEC support)
+and submit updates, while selected miners aggregate them into
+a global model. Privacy is strengthened via differential privacy
+applied to client updates, and the paper proposes a DP-friendly
+normalization technique to mitigate accuracy degradation under
+noise. To improve integrity, it combines an incentive/reputation
+mechanism with Byzantine-robust aggregation (Multi-Krum)
+to reduce the impact of unreliable clients.
+Key limitations are that robustness hinges on how miners are
+selected and behave (collusion/compromise can undermine in-
+tegrity), and that Multi-Krum plus reputation are not tailored to
+stealthy poisoning/backdoor behavior and may be manipulated
+strategically. Evaluation is mostly benchmark-based, leaving
+realistic smart-home conditions (strong non-IID streams, churn,
+real appliance datasets) less explored.
+DeepChain [114]. DeepChain targets privacy and correctness
+in BC-FL by protecting local training updates while making
+the aggregation process publicly auditable and economically
+fair. The core idea is to treat training updates as blockchain
+transactions: participants encrypt their intermediate gradients
+and submit them on-chain; designated workers collect and
+process these transactions to update the global model, and
+the updated model state is recorded on the ledger. Privacy
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 17
+is enforced via threshold Paillier encryption so that gradients
+remain confidential while still supporting encrypted aggregation.
+Auditability is achieved by attaching verifiable proofs to trans-
+actions, allowing others to check that collection and parameter
+updates were performed correctly. The framework also includes
+an incentive mechanism with rewards and penalties (e.g.,
+timeout and monetary punishment) to discourage misbehavior.
+Limitations include substantial cryptographic/protocol complex-
+ity and reliance on correct incentive calibration and honest-
+majority assumptions for the chain’s consensus/workers.
+Biscotti [115]. Biscotti targets privacy and robustness by
+enabling decentralized training without revealing individ-
+ual client updates, while limiting the impact of malicious
+participants. The system replaces a central server with a
+blockchain that logs training rounds and coordinates three
+rotating committees: proposers (collect updates), validators
+(check update validity), and aggregators (compute the global
+update). Privacy is provided through secure aggregation based
+on secret sharing so that only an aggregated update is revealed,
+not any single client contribution. Robustness is strengthened
+via a validation step that filters suspicious updates using
+anomaly detection before aggregation, and the committees
+are selected via a stake-based/PoS-like mechanism to reduce
+Sybil influence. Limitations include extra protocol complexity
+(committee formation, validation, secret sharing) and reliance
+on assumptions about committee honesty and sufficient benign
+participation; if attackers control committee selection or adapt
+to the validation filter, robustness can degrade.
+3) Security: Security in BC-FL primarily concerns integrity
+of the learning process under malicious or unreliable par-
+ticipants: poisoning (model/data), low-quality updates, and
+manipulation of aggregation/validation. The surveyed works
+commonly enforce integrity by (i) using consensus to validate
+and finalize updates (permissioned PBFT-style validation in
+Trustworthy FL [118], HotStuff-style SMR in PIRATE [107]),
+(ii) filtering or scoring updates before they influence aggre-
+gation, via robust aggregation rules and anomaly/reliability
+assessment (Multi-Krum and reputation in [112], anomaly-
+based scoring/committee aggregation in PIRATE [107]), and
+(iii) designing consensus incentives around model utility so that
+“useful” updates are favored during block production (proof-
+of-accuracy in BytoChain [113]). While these mechanisms can
+raise the bar for straightforward attacks, they typically shift the
+problem to the reliability of validation signals (accuracy-based
+thresholds, anomaly detectors, committee honesty) and to the
+practicality of running repeated verification rounds at scale.
+BytoChain [113]. BytoChain targets robustness to Byzantine
+(poisoning) behavior in BC-FL at the edge, while keeping ver-
+ification delay manageable. Its core idea is “dual verification”:
+verifiers first screen submitted local models in parallel using
+a small validation subset and discard models whose accuracy
+drop exceeds an Accuracy Oscillation Threshold (AOT); miners
+then build a block by selecting enough verified transactions and
+proposing the averaged model with the best validation accuracy,
+subject to AOT. Consensus is Proof-of-Accuracy (PoA): other
+miners accept a block only if (i) the AOT constraint holds,
+(ii) Accuracy Deviation Threshold (ADT) bounds cross-miner
+accuracy disagreement, and (iii) a homomorphic-hash constraint
+proves the global model is the average of the referenced local
+models without downloading all parameters (stored in IPFS,
+while hashes go on-chain). Limitations include reliance on
+validator/miner-held validation subsets, sensitivity to AOT/ADT
+tuning, and incomplete coverage of stealthy attacks (the paper
+flags privacy/confidentiality and backdoors as open issues).
+PIRATE [107]. PIRATE targets Byzantine-resilient decen-
+tralized training, focusing on protecting gradients/model param-
+eters and keeping aggregation reliable under malicious behavior.
+Methodologically, it combines (i) a sharded blockchain that
+runs a BFT state-machine replication protocol ( hotstuff [123])
+to agree on an append-only log of training “commands” and
+partial aggregation results, and (ii) a committee-based workflow
+where nodes are randomly split into multiple committees that
+perform partial aggregations in parallel to reduce load. To limit
+poisoning, each committee applies a reliability assessment step
+that scores incoming gradients with a pre-trained anomaly
+detector and downweights/excludes suspicious updates before
+committing results.
+Limitations are mainly evaluation and assumptions: the
+prototype is compared to a baseline largely under no-adversary
+settings (communication/storage and iteration time), while the
+robustness claims rely on how well the anomaly detector
+generalizes and on stable committee formation and BFT
+assumptions (e.g., honest-majority per committee and network
+conditions).
+Trustworthy FL [118]. This work targets trustworthy BC-FL
+at the wireless edge by protecting the integrity of global updates
+while keeping the coordination layer energy-efficient. The
+architecture combines a permissioned blockchain with wireless
+FL: global model updates are validated through Practical
+Byzantine Fault Tolerance (PBFT), which avoids PoW’s energy
+cost but assumes a permissioned committee and tolerates up
+to one-third malicious edge servers. The paper details the
+PBFT-based training pipeline and highlights that consensus
+induces non-negligible training latency due to repeated cross-
+validation/verification rounds among edge servers.
+To reduce this latency, the authors formulate a network
+optimization problem that jointly allocates bandwidth and
+transmission power to minimize long-term average training
+delay across rounds. They cast it as a Markov decision process
+and solve it with a DRL method (TD3), aiming for good
+performance with low online complexity. For robustness against
+poisoning on the client side, the framework uses Multi-Krum
+as the aggregation rule.
+Limitations mainly come from the permissioned setting and
+PBFT overhead: scalability depends on the size/connectivity
+of the edge-server committee, and the empirical validation is
+mostly benchmark/simulation-driven with simplified adversarial
+conditions.
+4) Incentive mechanisms: In BC-FL, incentives are often
+coupled with the coordination layer: the ledger records who
+contributed what, while rewards are used to (i) attract partici-
+pants with valuable data or resources and (ii) discourage free-
+riding and low-quality updates. The two works below represent
+two common directions: BlockFL [109] rewards devices
+proportionally to their training sample sizes and analyzes how
+consensus latency affects training delay, whereas FedCoin [110]
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 18
+uses a payment layer where rewards are computed from each
+client’s measured contribution to the learned model.
+BlockFL [109]. BlockFL targets (i) removing the single point
+of failure of a server and (ii) incentivizing participation by
+paying devices that contribute more training data. It replaces the
+server with a blockchain network where devices upload local
+model updates to miners; miners verify updates, run PoW, and
+append a block that records the verified updates. Each device
+then computes the global update locally from the new block,
+so a miner/device failure does not halt training. Incentives are
+proportional to the local dataset used for training. The paper’s
+main limitation is that the truthfulness of the dataset size is
+assessed heuristically.
+FedCoin [110]. FedCoin targets fair incentive allocation
+in FL by introducing Proof-of-Shapley-Value (PoSV): miners
+compute (or approximate) a Shapley-value vector that estimates
+each client’s marginal contribution to the final model, and the
+resulting reward split is recorded immutably as payments on-
+chain. The architecture separates an FL network from a P2P
+blockchain network that handles accounting and nonrepudiation.
+Limitations are that Shapley-value computation is expensive
+and typically requires approximations and repeated utility
+evaluations; rewards can also be sensitive to the chosen
+valuation protocol and to noisy/non-IID evaluation data.
+5) Resource efficiency: BC-FL introduces extra system
+costs (e.g., block production/verification delay, transaction
+backlogs, and additional compute/communication at edge
+nodes). As a result, resource-efficient BC-FL works typically
+co-design the learning loop with the ledger protocol, tuning
+when devices train/upload and how fast blocks are generated
+so that learning progress is not throttled by the chain. The
+two representative directions are: (i) asynchronous FL with
+block-rate and participation control to avoid congestion and
+reduce delay/energy [116], and (ii) joint modeling of training,
+communication, and mining, with optimized role scheduling
+and resource allocation to minimize end-to-end training time
+under device constraints [117].
+BAFL [116]. It targets efficiency in BC-FL by reducing
+training delay and device energy consumption under asyn-
+chronous participation. It allows devices to upload local models
+without strict round synchronization and uses the blockchain
+for logging and coordination. The core methodology is a
+workflow control layer that (i) adjusts the block generation rate
+to balance confirmation latency against congestion, and (ii)
+adapts devices’ local training/upload timing to limit transaction
+overload. It also records participation-related scores (used
+as a notion of contribution/trust) on-chain and formulates a
+multi-objective optimization (energy–delay trade-off) to choose
+operating points. Limitations include that performance depends
+on accurate tuning of arrival rates and block parameters, and the
+analysis primarily focuses on efficiency rather than adversarial
+settings beyond a simple random-noise attack.
+BLADE-FL [117]. It targets resource efficiency and ro-
+bustness to single-point failures by integrating training and
+blockchain operations at the client side. Each client trains
+locally, broadcasts its update as a transaction, and participates
+in block creation/validation so that aggregation is driven by
+the ledger rather than a central server. Methodologically, the
+paper models the end-to-end learning cycle (local compute,
+transmission, block generation and validation) and derives
+learning-performance characterizations to guide system design;
+it then optimizes system parameters (e.g., the number of
+integrated rounds and resource allocation variables) to reduce
+long-term training latency while keeping learning progress
+stable. Limitations include reliance on simplifying assumptions
+for tractable analysis (e.g., homogeneous device capabilities
+and idealized communication/attack models).
+VI. L ESSONS LEARNED & FUTURE DIRECTIONS
+In this section, we summarize the main lessons learned from
+the surveyed literature and outline future research directions
+for DFL, following the taxonomy in Section V and empha-
+sizing cross-cutting gaps across security, privacy, incentives,
+communication efficiency, and realistic deployment constraints.
+A. Security against Adversarial Attacks
+While in standard FL the coordinator typically does not
+hold a validation dataset, prior work has largely pursued robust
+aggregation rules [124]–[128] and filtering strategies [129],
+[130] that rely on statistical, geometric, or temporal consistency
+signals to assess incoming updates. In DFL, by contrast, each
+peer naturally has access to local labeled data that can act
+as a validation set. This opens the door to validation-based
+sanity checks of neighbor models prior to aggregation; a design
+explicitly explored in BytoChain and PANM, where nodes use
+a small held-out set not only to monitor their own training but
+also to score received peer updates before merging. Still, the
+advantage of per-node validation over distance- or statistical-
+based defenses is not guaranteed: local validation sets can
+be small and biased, and they are poorly suited to detecting
+backdoors because triggers are unlikely to appear in the held-
+out data. As a result, validation is best viewed as one stage in
+a defense pipeline (e.g., pre-filtering before robust aggregation,
+complemented by backdoor-oriented tests or mitigation).
+This pipeline perspective is particularly important because
+importing server-based robust aggregators into DFL “as
+is” [108], [112], [115], [118] can create a false sense of security.
+Many aggregation defenses assume that, within the set of
+updates being aggregated, the malicious fraction is bounded
+(often < 1
+2, sometimes < 1
+3 depending on the rule and threat
+model). While such assumptions can be reasonable when a
+server samples broadly from a large population, they may fail
+locally in DFL: a node can be surrounded by adversaries
+within its neighborhood even if the global network is largely
+benign. Consequently, local validation can serve as a first-line
+filter to reduce obviously harmful updates, after which robust
+aggregation (and, when relevant, topology- and backdoor-aware
+checks) can be applied to the remaining neighbor models.
+A recurring lesson from the reviewed BC-FL literature is that
+the blockchain is often used primarily as a logging substrate
+that partially replaces the server’s role, rather than as a security
+panacea. Moreover, many designs shift trust to miners or
+validators, creating a new hierarchy resembling centralized
+FL. Other than that, BC-FL methods may expand the attack
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 19
+surface by introducing consensus- and smart-contract-related
+failure modes on top of the learning-layer threats.
+In general, DFL enlarges the adversarial surface compared
+to server-based FL: updates are exchanged over P2P links, the
+topology influences exposure and attack propagation, and the
+absence of a single coordinator complicates monitoring and
+mitigation. In BC-FL, consensus and trust management can
+incentivize correct behavior and help identify falsified updates,
+but the attack landscape is evolving, and current designs
+still face open threats. Although several surveyed systems
+demonstrate robustness against basic adversarial behaviors, the
+literature still lacks a systematic security evaluation for DFL
+under realistic and adaptive attacker models and under diverse
+topologies. A key future direction is to consolidate threat
+models and benchmarks that explicitly capture (i) topology-
+aware poisoning/backdoor attacks, (ii) Sybil and collusion
+strategies in decentralized settings, and (iii) the interaction be-
+tween security measures and non-IID heterogeneity. In parallel,
+defenses should move beyond “single-mechanism” approaches
+by combining robust aggregation/filtering, trust/reputation
+signals, and protocol-level constraints (e.g., neighbor selection
+rules) in a way that is still compatible with privacy and
+communication limits, while fostering cooperation.
+B. Strategic and Utility-Seeking Insider Threats
+Most security work in DFL is framed around disruption-
+oriented adversaries and defenses that aim to preserve conver-
+gence or accuracy. However, decentralization naturally enables
+strategic behaviors that optimize a participant’s own utility
+rather than purely degrading global performance. This is
+further confounded by statistical heterogeneity, since benign
+updates can already be highly variable and neighborhood-
+specific, making strategic deviations harder to distinguish
+from non-IID behavior using proxy metrics alone. Competitive
+advantage attacks [100] exemplify this threat model and
+highlight that standard Byzantine-robustness is an incomplete
+evaluation lens. A key future direction is to develop security
+benchmarks and defenses explicitly designed for utility-seeking
+adversaries, including collusion, and to study protocol-level
+countermeasures that combine robust filtering/aggregation with
+incentive-aware rules that discourage strategic deviations.
+C. Privacy in Adversarial Settings
+Privacy risks in DFL are generally amplified because
+local updates can be observed by multiple peers over time
+(and potentially by colluding neighborhoods), rather than by
+a single coordinator. In BC-FL, the exposure surface can
+further increase because ledger-driven coordination makes
+updates/models broadly retrievable, whereas in TD-FL visibility
+is largely constrained by the communication topology . BC-FL
+also often introduces a miner/validator hierarchy; if these parties
+are treated as more trusted than peers, the trust model drifts
+toward a setting resembling the centralized FL setting where
+trust is assumed.
+Recent works motivate privacy mechanisms tailored to
+decentralization, including (i) privacy accounting schemes
+explicitly designed for DFL communication patterns (e.g.,
+f-differential privacy [103]), and (ii) privacy-by-design ap-
+proaches that reduce leakage through protocol structure and
+partial observability (e.g., ERIS [105]). A major open problem
+is to unify these perspectives into threat models and privacy
+metrics that reflect realistic DFL deployments, including com-
+promised subsets of peers, collusion, time-varying topologies,
+and repeated exposure across rounds. Another promising
+direction is to develop standardized privacy benchmarks for
+DFL and, thereafter, jointly measure privacy leakage with
+accuracy, and communication cost, since recent approaches
+explicitly target these trade-offs simultaneously.
+D. Incentive Mechanisms
+Incentives are a core bottleneck for DFL because par-
+ticipation is voluntary and costly: nodes should contribute
+computation despite free-riding opportunities [131], [132],
+privacy constraints, and the difficulty of evaluating contribution
+fairly. This challenge is only partially addressed in current work:
+in TD-FL, incentive mechanisms are essentially absent in our
+corpus, with IPLS [87] only briefly mentioning the integration
+of a cryptocurrency-like. In BC-FL, rewards exist but are often
+tied to data quantity [109] or measured accuracy [110], which
+can discourage weaker nodes and does not directly solve “who
+should be rewarded for improving the model.”
+Two structural issues make incentives in FL harder than in
+many P2P systems: nodes do not share strategic information due
+to privacy concerns, and contribution-to-accuracy is difficult
+to estimate and highly nonlinear. In DFL, incentives also
+interact with topology: who exchanges with whom affects both
+measurability of contribution and manipulability of reward
+signals. A concrete future direction is to develop incentive
+mechanisms that are (i) compatible with privacy (minimal
+disclosure), (ii) robust to manipulation (e.g., gaming reputation
+or falsifying contribution evidence), and (iii) topology-aware.
+Promising starting points include adapting known P2P incentive
+families (monetary, auction-based, reputation-based, service-
+based) and leveraging game-theoretic tools, but grounding these
+designs in DFL-specific constraints and evaluation metrics.
+Finally, incentives should be studied jointly with security:
+strategic participants may deviate not only to free-ride but
+also to gain advantage, so incentive protocol design becomes
+a security primitive rather than a purely economic add-on.
+E. Fault Tolerance in Realistic Decentralized Applications
+Fault tolerance is one of the main motivations for moving
+away from a centralized coordinator. In BC-FL, replicated
+ledger state can remove the single point of failure associated
+with a coordinator by externalizing global model progression
+into a shared log; however, robustness then depends on the
+liveness and partition tolerance of the consensus layer and on
+how model availability is ensured (on-chain vs off-chain).
+Moreover, many DFL protocols are evaluated under relatively
+static assumptions (fixed participant sets, stable connectivity,
+synchronous rounds). A practical research gap is to char-
+acterize and improve DFL under churn, intermittent links,
+and asynchronous operation, especially when these effects
+interact with security and incentives. Developing reference
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 20
+simulation settings and datasets for dynamic environments,
+together with theory that captures time-varying graphs, would
+make empirical results more comparable and would push the
+literature closer to real-world applications. Another concrete
+gap is recovery under network partitions: when the graph
+splits, how should sub-networks continue training, and how
+(and whether) should models be reconciled when connectivity
+returns without amplifying poisoning or drift?
+F . Bandwidth Utilization and Communication Scalability
+Communication is the dominant scalability bottleneck in
+DFL because each peer exchanges updates over bandwidth-
+limited and heterogeneous links, and the topology can induce
+quadratic message growth in dense graphs. A key lesson from
+the surveyed TD-FL works is that communication savings
+come from three levers that are often coupled: exploiting
+link heterogeneity through neighbor selection, and reducing
+payload size via compression or by splitting exchanged models.
+However, these mechanisms introduce new failure modes:
+sparse communication can slow mixing and exacerbate non-
+IID drift, and aggressive compression can interact poorly with
+robustness defenses that rely on geometric distances.
+Promising directions include topology-adaptive protocols that
+explicitly trade mixing speed for bandwidth, and co-designing
+compression with adversarial robustness mechanisms so that
+bandwidth savings do not weaken poisoning detection.
+G. Rethinking the notion of a global model in TD-FL
+Decentralization changes what ‘global’ means. In TD-FL,
+the training state is locally maintained and propagated along
+the topology; a single global model is only an abstraction when
+the graph is sufficiently connected and mixes fast enough for
+consensus to form. In realistic settings with churn, clustered
+communities, or intermittent connectivity, TD-FL may instead
+converge to multiple cluster-specific solutions . In contrast, BC-
+FL designs often expose a network-wide shared state, making
+the global model closer to its meaning in centralized FL.
+On a related note, a recurring lesson in the TD-FL literature
+is that non-IID is not only a statistical issue, but also a topology
+one: who exchanges with whom shapes which distributions
+are mixed and, consequently, what notion of “global” model is
+achievable. The TD-FL works surveyed address heterogeneity
+without sharing raw data mainly by replacing parameter
+averaging with knowledge transfer, by clustering/neighbor
+matching so that aggregation happens among similar peers, or
+by exchanging probabilistic information rather than full models.
+These approaches implicitly move DFL along a spectrum from
+global consensus toward clustered or personalized solutions.
+Future work should make this objective explicit: are we
+optimizing a single network-wide model, multiple cluster-
+level models, or fully personalized models? This calls for
+evaluation protocols that report not only average accuracy,
+but also cluster-wise behavior, fairness across communities,
+sensitivity to graph partitions, and robustness when clusters
+are adversarially manipulated (e.g., Sybils steering neighbor
+matching).
+VII. C ONCLUSION
+Federated learning (FL) has become a widely adopted
+paradigm for training machine learning models without direct
+data pooling. However, standard FL typically relies on a central
+coordinator, which introduces a single point of failure and
+a strong trust and security dependency on the orchestration
+infrastructure. Decentralized federated learning (DFL) removes
+this coordinator and enables peer-to-peer cooperation, but
+this shift makes information flow topology-dependent and
+introduces new challenges in security, privacy, and reliability.
+In this survey, we reviewed the literature on DFL and
+organized existing approaches into two families—traditional
+distributed computing (TD-FL) and blockchain-based (BC-
+FL)—then structured them through a unified, challenge-oriented
+taxonomy. This view clarifies which bottlenecks each line of
+work targets and highlights recurring gaps across the field.
+Several open problems emerge. First, security needs eval-
+uation under decentralized threat models that account for
+topology-aware poisoning/backdoors, collusion, Sybil behavior,
+and utility-seeking insiders. Second, privacy guarantees should
+reflect decentralized exposure: in TD-FL, visibility is largely
+neighborhood-driven, while in BC-FL the shared ledger and its
+off-chain retrieval mechanisms can widen access, motivating
+privacy mechanisms that go beyond server-based assumptions.
+Third, fault tolerance remains underexplored under churn,
+intermittent connectivity, heterogeneous resources, and asyn-
+chronous operation, where even the notion of a single global
+model may be task- and topology-dependent.
+We hope this survey serves as a reference for researchers and
+practitioners by mapping the DFL design space with a common
+taxonomy and by identifying the gaps that must be addressed
+to move from conceptual protocols to robust deployments.
+REFERENCES
+[1] OpenAI, “Gpt-4o,” 2024, accessed: 2026-03-02. [Online]. Available:
+https://openai.com/index/gpt-4o-system-card/
+[2] Gemini Team, “Gemini 1.5: Unlocking multimodal understanding
+across millions of tokens of context,” 2024. [Online]. Available:
+https://arxiv.org/abs/2403.05530
+[3] OpenAI, “DALL-E 3,” Oct. 2023, accessed: 2026-03-02. [Online].
+Available: https://openai.com/index/dall-e-3-system-card/
+[4] ——, “Sora,” 2024, accessed: 2026-03-02. [Online]. Available:
+https://openai.com/index/sora-system-card/
+[5] C. Tikkinen-Piri, A. Rohunen, and J. Markkula, “Eu general data
+protection regulation: Changes and implications for personal data
+collecting companies,” Computer Law & Security Review , vol. 34,
+no. 1, pp. 134–153, 2018.
+[6] R. Nosowsky and T. J. Giordano, “The health insurance portability and
+accountability act of 1996 (hipaa) privacy rule: implications for clinical
+research,” Annu. Rev. Med., vol. 57, pp. 575–590, 2006.
+[7] C. Dwork and A. Roth, “The algorithmic foundations of differential
+privacy,”Found. Trends Theor. Comput. Sci., vol. 9, pp. 211–407, 2014.
+[8] L. T. Phong, Y . Aono, T. Hayashi, L. Wang, and S. Moriai, “Privacy-
+preserving deep learning via additively homomorphic encryption,” IEEE
+Transactions on Information Forensics and Security , vol. 13, no. 5, pp.
+1333–1345, 2018.
+[9] O. Goldreich, “Secure multi-party computation,” Manuscript. Prelimi-
+nary Version, 03 1999.
+[10] I. Zhou, F. Tofigh, M. Piccardi, M. Abolhasan, D. Franklin, and
+J. Lipman, “Secure multi-party computation for machine learning: A
+survey,” IEEE Access, vol. 12, pp. 53 881–53 899, 2024.
+[11] V . Nikolaenko, U. Weinsberg, S. Ioannidis, M. Joye, D. Boneh, and
+N. Taft, “Privacy-preserving ridge regression on hundreds of millions
+of records,” in IEEE Symposium on Security and Privacy , 2013, pp.
+334–348.
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 21
+[12] J. Yuan and S. Yu, “Privacy preserving back-propagation neural network
+learning made practical with cloud computing,” IEEE Transactions on
+Parallel and Distributed Systems , vol. 25, no. 1, pp. 212–221, 2014.
+[13] B. McMahan and D. Ramage, “Federated learning: Collaborative
+machine learning without centralized training data,” Google Research
+Blog, vol. 3, 2017.
+[14] B. McMahan, E. Moore, D. Ramage, S. Hampson, and B. A. y.
+Arcas, “Communication-Efficient Learning of Deep Networks from
+Decentralized Data,” in Proc. of AISTATS ’17’, A. Singh and J. Zhu,
+Eds., vol. 54. PMLR, 20–22 Apr 2017, pp. 1273–1282. [Online].
+Available: https://proceedings.mlr.press/v54/mcmahan17a.html
+[15] Q. Wu, K. He, and X. Chen, “Personalized federated learning for
+intelligent iot applications: A cloud-edge based framework,” IEEE
+Open Journal of the Computer Society , vol. 1, pp. 35–44, 2020.
+[16] C. Zhou, A. Fu, S. Yu, W. Yang, H. Wang, and Y . Zhang, “Privacy-
+preserving federated learning in fog computing,”IEEE Internet of Things
+Journal, vol. 7, no. 11, pp. 10 782–10 793, 2020.
+[17] S. R. Pokhrel and J. Choi, “A decentralized federated learning
+approach for connected autonomous vehicles,” in 2020 IEEE Wireless
+Communications and Networking Conference Workshops (WCNCW) ,
+2020, pp. 1–6.
+[18] Y . Chen, X. Qin, J. Wang, C. Yu, and W. Gao, “Fedhealth: A federated
+transfer learning framework for wearable healthcare,” IEEE Intell. Syst. ,
+vol. 35, no. 4, pp. 83–93, 2020.
+[19] P. Kairouz, H. B. McMahan, B. Avent, A. Bellet, M. Bennis, A. N.
+Bhagoji, K. Bonawitz, Z. Charles, G. Cormode, R. Cummings et al.,
+“Advances and open problems in federated learning,” Foundations and
+Trends® in Machine Learning , vol. 14, no. 1–2, pp. 1–210, 2021.
+[20] M. Fredrikson, S. Jha, and T. Ristenpart, “Model inversion attacks
+that exploit confidence information and basic countermeasures,” in
+Proceedings of the 22nd ACM SIGSAC Conference on Computer
+and Communications Security , ser. CCS ’15. New York, NY , USA:
+Association for Computing Machinery, 2015, p. 1322–1333. [Online].
+Available: https://doi.org/10.1145/2810103.2813677
+[21] H. Hu, Z. Salcic, L. Sun, G. Dobbie, P. S. Yu, and X. Zhang,
+“Membership inference attacks on machine learning: A survey,” ACM
+Comput. Surv. , vol. 54, no. 11s, Sep. 2022. [Online]. Available:
+https://doi.org/10.1145/3523273
+[22] F. Boenisch, A. Dziedzic, R. Schuster, A. S. Shamsabadi, I. Shumailov,
+and N. Papernot, “When the Curious Abandon Honesty: Federated
+Learning Is Not Private,” Apr. 2023.
+[23] L. Zhu, Z. Liu, and S. Han, “Deep leakage from gradients,” in
+Advances in Neural Information Processing Systems , H. Wallach,
+H. Larochelle, A. Beygelzimer, F. d 'Alché-Buc, E. Fox, and
+R. Garnett, Eds., vol. 32. Curran Associates, Inc., 2019.
+[Online]. Available: https://proceedings.neurips.cc/paper_files/paper/
+2019/file/60a6c4002cc7b29142def8871531281a-Paper.pdf
+[24] B. Zhao, K. R. Mopuri, and H. Bilen, “iDLG: Improved Deep Leakage
+from Gradients,” Jan. 2020.
+[25] G. Baruch, M. Baruch, and Y . Goldberg, “A Little Is Enough: Circum-
+venting Defenses for Distributed Learning,” in Proc. of NeurIPS ’19,
+2019, pp. 8632–8642. [Online]. Available: https://proceedings.neurips.cc/
+paper/2019/hash/ec1c59141046cd1866bbbcdfb6ae31d4-Abstract.html
+[26] M. Fang, X. Cao, J. Jia, and N. Gong, “Local Model Poisoning Attacks
+to Byzantine-Robust Federated Learning,” in Proc. of USENIX ’20 .
+USENIX Association, 2020, pp. 1605–1622.
+[27] V . Shejwalkar and A. Houmansadr, “Manipulating the Byzantine:
+Optimizing Model Poisoning Attacks and Defenses for Federated
+Learning,” in Proceedings 2021 Network and Distributed System
+Security Symposium. Virtual: Internet Society, 2021.
+[28] E. Bagdasaryan, A. Veit, Y . Hua, D. Estrin, and V . Shmatikov, “How
+to backdoor federated learning,” in Proceedings of the Twenty Third
+International Conference on Artificial Intelligence and Statistics , ser.
+Proceedings of Machine Learning Research, S. Chiappa and R. Calandra,
+Eds., vol. 108. PMLR, 26–28 Aug 2020, pp. 2938–2948. [Online].
+Available: https://proceedings.mlr.press/v108/bagdasaryan20a.html
+[29] H. Wang, K. Sreenivasan, S. Rajput, H. Vishwakarma, S. Agarwal,
+J. yong Sohn, K. Lee, and D. Papailiopoulos, “Attack of the tails: Yes,
+you really can backdoor federated learning,” 2020. [Online]. Available:
+https://arxiv.org/abs/2007.05084
+[30] C. Xie, K. Huang, P.-Y . Chen, and B. Li, “Dba: Distributed
+backdoor attacks against federated learning,” in International
+Conference on Learning Representations , 2020. [Online]. Available:
+https://openreview.net/forum?id=rkgyS0VFvr
+[31] J. Wang, Z. Charles, Z. Xu, G. Joshi, H. B. McMahan, B. A.
+y Arcas, M. Al-Shedivat, G. Andrew, S. Avestimehr, K. Daly, D. Data,
+S. Diggavi, H. Eichner, A. Gadhikar, Z. Garrett, A. M. Girgis,
+F. Hanzely, A. Hard, C. He, S. Horvath, Z. Huo, A. Ingerman,
+M. Jaggi, T. Javidi, P. Kairouz, S. Kale, S. P. Karimireddy, J. Konecny,
+S. Koyejo, T. Li, L. Liu, M. Mohri, H. Qi, S. J. Reddi, P. Richtarik,
+K. Singhal, V . Smith, M. Soltanolkotabi, W. Song, A. T. Suresh,
+S. U. Stich, A. Talwalkar, H. Wang, B. Woodworth, S. Wu, F. X. Yu,
+H. Yuan, M. Zaheer, M. Zhang, T. Zhang, C. Zheng, C. Zhu, and
+W. Zhu, “A field guide to federated optimization,” 2021. [Online].
+Available: https://arxiv.org/abs/2107.06917
+[32] V . Tong, L. Tran, H. Pham, T. Bui, and D. Tran, “Reducing
+communication overhead in federated learning using deep reinforcement
+learning,” in Proceedings of the 3rd ACM Workshop on Secure and
+Trustworthy Deep Learning Systems , ser. SecTL ’25. New York, NY ,
+USA: Association for Computing Machinery, 2025, p. 21–30. [Online].
+Available: https://doi.org/10.1145/3709021.3737667
+[33] L. Zhu, H. Lin, Y . Lu, Y . Lin, and S. Han, “Delayed gradient
+averaging: Tolerate the communication latency for federated learning,”
+in Advances in Neural Information Processing Systems , A. Beygelzimer,
+Y . Dauphin, P. Liang, and J. W. Vaughan, Eds., 2021. [Online].
+Available: https://openreview.net/forum?id=ACFHNxVNvfk
+[34] E. T. Martínez Beltrán, M. Q. Pérez, P. M. S. Sánchez, S. L. Bernal,
+G. Bovet, M. G. Pérez, G. M. Pérez, and A. H. Celdrán, “Decentralized
+federated learning: Fundamentals, state of the art, frameworks, trends,
+and challenges,” IEEE Communications Surveys & Tutorials , vol. 25,
+no. 4, pp. 2983–3013, 2023.
+[35] E. Hallaji, R. Razavi-Far, M. Saif, B. Wang, and Q. Yang, “Decentralized
+federated learning: A survey on security and privacy,”IEEE Transactions
+on Big Data , vol. 10, no. 2, pp. 194–213, 2024.
+[36] L. Yuan, Z. Wang, L. Sun, P. S. Yu, and C. G. Brinton, “Decentralized
+federated learning: A survey and perspective,” IEEE Internet of Things
+Journal, vol. 11, no. 21, pp. 34 617–34 638, 2024.
+[37] H. Zhang, S. Jiang, and S. Xuan, “Decentralized federated learning
+based on blockchain: concepts, framework, and challenges,” Computer
+Communications, vol. 216, pp. 140–150, 2024. [Online]. Available:
+https://www.sciencedirect.com/science/article/pii/S0140366423004851
+[38] H. H. Kumar, K. V R, and M. K. Nair, “Federated k-means clustering:
+A novel edge ai based approach for privacy preservation,” in IEEE
+CCEM, 2020, pp. 52–56.
+[39] Y . Lu and L. Fan, “An efficient and robust aggregation algorithm for
+learning federated cnn,” in Proceedings of the 2020 3rd International
+Conference on Signal Processing and Machine Learning , 2020, pp. 1–7.
+[40] Q. Yang, Y . Liu, T. Chen, and Y . Tong, “Federated machine learning:
+Concept and applications,” vol. 10, no. 2, jan 2019. [Online]. Available:
+https://doi.org/10.1145/3298981
+[41] P. Christen, Data Matching: Concepts and Techniques for Record
+Linkage, Entity Resolution, and Duplicate Detection . Springer
+Publishing Company, Incorporated, 2012.
+[42] S. J. Pan and Q. Yang, “A Survey on Transfer Learning,” IEEE
+Transactions on Knowledge and Data Engineering , vol. 22, no. 10, pp.
+1345–1359, 2010.
+[43] P. Mohassel and Y . Zhang, “Secureml: A system for scalable privacy-
+preserving machine learning,” in 2017 IEEE Symposium on Security
+and Privacy (SP) , 2017, pp. 19–38.
+[44] S. R. Heiyanthuduwage, I. Altas, M. Bewong, M. Z. Islam, and O. B.
+Deho, “Decision trees in federated learning: Current state and future
+opportunities,” IEEE Access, vol. 12, pp. 127 943–127 965, 2024.
+[45] S. Hardy, W. Henecka, H. Ivey-Law, R. Nock, G. Patrini,
+G. Smith, and B. Thorne, “Private federated learning on vertically
+partitioned data via entity resolution and additively homomorphic
+encryption,” CoRR, vol. abs/1711.10677, 2017. [Online]. Available:
+http://arxiv.org/abs/1711.10677
+[46] Q. Li, Z. Wen, and B. He, “Practical federated gradient boosting
+decision trees,” Proceedings of the AAAI Conference on Artificial
+Intelligence, vol. 34, no. 04, pp. 4642–4649, Apr. 2020. [Online].
+Available: https://ojs.aaai.org/index.php/AAAI/article/view/5895
+[47] H. Yu, C. Wu, H. Yu, X. Wei, S. Liu, and Y . Zhang, “A federated
+learning algorithm using parallel-ensemble method on non-IID datasets,”
+Complex & Intelligent Systems, vol. 9, no. 6, pp. 6891–6903, Dec. 2023.
+[48] N. A. Tuan, R. Xu, S. J. S. Moe, and D. Kim, “Federated recognition
+architecture based on voting and feedback mechanisms for accuracy
+object classification in distributed edge intelligence environment,” IEEE
+Sensors Journal, vol. 23, no. 22, pp. 27 478–27 489, 2023.
+[49] M. Wu, L. Li, T. Chang, P. Qiao, C. Miao, J. Zhou, J. Wang,
+and X. Wang, “Fedekt: Ensemble knowledge transfer for model-
+heterogeneous federated learning,” in 2024 IEEE/ACM 32nd Inter-
+national Symposium on Quality of Service (IWQoS) , 2024, pp. 1–10.
+[50] A. C. Zhou, Y . Xiao, Y . Gong, B. He, J. Zhai, and R. Mao, “Privacy
+regulation aware process mapping in geo-distributed cloud data centers,”
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 22
+IEEE Trans. Parallel Distributed Syst. , vol. 30, no. 8, pp. 1872–1888,
+2019. [Online]. Available: https://doi.org/10.1109/TPDS.2019.2896894
+[51] D. Barkai, “An introduction to peer-to-peer computing,” Intel Developer
+update magazine, pp. 1–7, 2000.
+[52] BitTorrent, https://www.bittorrent.com, 2023.
+[53] Gnutella, https://rfc-gnutella.sourceforge.net/, 2023.
+[54] Napster, https://www.napster.com/it, 2023.
+[55] Skype, https://www.skype.com, 2023.
+[56] M. Roussopoulos, M. Baker, D. S. H. Rosenthal, T. J. Giuli, P. Maniatis,
+and J. C. Mogul, “2 p2p or not 2 p2p?” in International Workshop on
+Peer-to-Peer Systems, 2003.
+[57] X. Li, P. Zhao, and L. Li, “Resilience and reliability analysis of
+p2p network systems,” Operations Research Letters , vol. 38, no. 1,
+pp. 20–26, 2010. [Online]. Available: https://www.sciencedirect.com/
+science/article/pii/S0167637709001084
+[58] A.-M. Kermarrec and F. Taiani, “Want to scale in centralized systems?
+think p2p,” Journal of Internet Services and Applications , vol. 6, 08
+2015.
+[59] T. Isdal, M. Piatek, A. Krishnamurthy, and T. Anderson, “Privacy-
+preserving p2p data sharing with oneswarm,” in Proc. of SIGCOMM ’10.
+New York, NY , USA: Association for Computing Machinery, 2010, p.
+111–122. [Online]. Available: https://doi.org/10.1145/1851182.1851198
+[60] S. Marti and H. Garcia-Molina, “Identity crisis: anonymity vs reputation
+in p2p systems,” in Proceedings Third International Conference on
+Peer-to-Peer Computing (P2P2003), 2003, pp. 134–141.
+[61] B. Pretre, “Attacks on peer-to-peer networks,”Dept. of Computer Science
+Swiss Federal Institute of Technology (ETH) Zurich Autumn , 2005.
+[62] S. Ram, A. Nedic, and V . Veeravalli, “Distributed stochastic subgradient
+projection algorithms for convex optimization,” Journal of Optimization
+Theory and Applications , vol. 147, pp. 516–545, 12 2010.
+[63] A. Nedic and A. Ozdaglar, “Distributed subgradient methods for multi-
+agent optimization,” Automatic Control, IEEE Transactions on , vol. 54,
+pp. 48 – 61, 02 2009.
+[64] A. Bellet, R. Guerraoui, M. Taziki, and M. Tommasi, “Personalized
+and private peer-to-peer machine learning,” in Proc. of AISTATS ’18,
+A. Storkey and F. Perez-Cruz, Eds., vol. 84. PMLR, 09–11 Apr 2018,
+pp. 473–481. [Online]. Available: https://proceedings.mlr.press/v84/
+bellet18a.html
+[65] D. Yaga, P. Mell, N. Roby, and K. Scarfone, “Blockchain technology
+overview,”ArXiv, vol. abs/1906.11078, 2018.
+[66] S. Nakamoto, “Bitcoin: A peer-to-peer electronic cash system,” May
+2009. [Online]. Available: http://www.bitcoin.org/bitcoin.pdf
+[67] V . Buterin, “Ethereum white paper: A next generation smart contract
+& decentralized application platform,” 2013. [Online]. Available:
+https://github.com/ethereum/wiki/wiki/White-Paper
+[68] X. Chen, J. Ji, C. Luo, W. Liao, and P. Li, “When machine learning meets
+blockchain: A decentralized, privacy-preserving and secure design,” in
+IEEE Big Data , 2018, pp. 1178–1187.
+[69] X. Qu, S. Wang, Q. Hu, and X. Cheng, “Proof of federated learning:
+A novel energy-recycling consensus algorithm,” IEEE Transactions on
+Parallel and Distributed Systems , vol. 32, no. 8, pp. 2074–2085, 2021.
+[70] B. Yu, J. Liu, S. Nepal, J. Yu, and P. Rimba, “Proof-of-qos: Qos based
+blockchain consensus protocol,” Computers & Security , vol. 87, p.
+101580, 07 2019.
+[71] X. Liu, G. Zhao, X. Wang, Y . Lin, Z. Zhou, H. Tang, and B. Chen,
+“Mdp-based quantitative analysis framework for proof of authority,”2019
+International Conference on Cyber-Enabled Distributed Computing and
+Knowledge Discovery (CyberC) , pp. 227–236, 2019.
+[72] Y . Li, C. Chen, N. Liu, H. Huang, Z. Zheng, and Q. Yan, “A blockchain-
+based decentralized federated learning framework with committee
+consensus,” IEEE Network, vol. 35, no. 1, pp. 234–241, 2021.
+[73] A. Aldoubaee, N. H. Hassan, and F. A. Rahim, “A systematic review
+on blockchain scalability,” International Journal of Advanced Computer
+Science and Applications , vol. 14, no. 9, 2023. [Online]. Available:
+http://dx.doi.org/10.14569/IJACSA.2023.0140981
+[74] M. Abdelhamid, L. Sliman, R. Ben Djemaa, and G. Perboli, “A review
+on blockchain technology, current challenges, and ai-driven solutions,”
+ACM Comput. Surv. , vol. 57, no. 3, Nov. 2024. [Online]. Available:
+https://doi.org/10.1145/3700641
+[75] M. An, Q. Fan, H. Yu, B. An, N. Wu, H. Zhao, X. Wan, J. Li, R. Wang,
+J. Zhen, Q. Zou, and B. Zhao, “Blockchain technology research and
+application: A literature review and future trends,” Journal of Data
+Science and Intelligent Systems , vol. 4, no. 1, p. 1–12, Oct. 2023.
+[Online]. Available: http://dx.doi.org/10.47852/bonviewJDSIS32021403
+[76] M. Boughdiri, T. Abdellatif, and C. Ghedira Guegan, “A systematic
+literature review on blockchain storage scalability,”IEEE Access, vol. 13,
+pp. 102 194–102 219, 2025.
+[77] N. E. Villanueva, “Blockchain technology application: Challenges,
+limitations and issues.” [Online]. Available: https://api.semanticscholar.
+org/CorpusID:279129386
+[78] M. J. Page, J. E. McKenzie, P. M. Bossuyt, I. Boutron, T. C. Hoffmann,
+C. D. Mulrow, L. Shamseer, J. M. Tetzlaff, E. A. Akl, S. E. Brennan
+et al., “The prisma 2020 statement: an updated guideline for reporting
+systematic reviews,” International journal of surgery, vol. 88, p. 105906,
+2021.
+[79] J. Seo, F. O. Catak, and C. Rong, “Understanding federated learning
+from iid to non-iid dataset: An experimental study,” 2025. [Online].
+Available: https://arxiv.org/abs/2502.00182
+[80] M. Jagielski, A. Oprea, B. Biggio, C. Liu, C. Nita-Rotaru, and B. Li,
+“Manipulating machine learning: Poisoning attacks and countermeasures
+for regression learning,” in 2018 IEEE Symposium on Security and
+Privacy (SP), 2018, pp. 19–35.
+[81] A. N. Bhagoji, S. Chakraborty, P. Mittal, and S. Calo, “Analyzing
+federated learning through an adversarial lens,” in Proc. of
+ICML, K. Chaudhuri and R. Salakhutdinov, Eds., vol. 97.
+PMLR, 09–15 Jun 2019, pp. 634–643. [Online]. Available:
+https://proceedings.mlr.press/v97/bhagoji19a.html
+[82] W. Yang, N. Wang, Z. Guan, L. Wu, X. Du, and M. Guizani, “A
+practical cross-device federated learning framework over 5g networks,”
+IEEE Wireless Communications, vol. 29, no. 6, pp. 128–134, 2022.
+[83] M. Tang and V . W. Wong, “An incentive mechanism for cross-silo
+federated learning: A public goods perspective,” in IEEE INFOCOM
+2021-IEEE Conference on Computer Communications . IEEE, 2021,
+pp. 1–10.
+[84] A. Lalitha, “Fully decentralized federated learning,” 2018.
+[85] A. G. Roy, S. Siddiqui, S. Pölsterl, N. Navab, and C. Wachinger,
+“Braintorrent: A peer-to-peer environment for decentralized federated
+learning,” CoRR, vol. abs/1905.06731, 2019. [Online]. Available:
+http://arxiv.org/abs/1905.06731
+[86] C. Hu, J. Jiang, and Z. Wang, “Decentralized federated learning: A
+segmented gossip approach,” 2019.
+[87] C. Pappas, D. Chatzopoulos, S. Lalis, and M. Vavalis, “Ipls: A frame-
+work for decentralized federated learning,” in 2021 IFIP Networking
+Conference (IFIP Networking) , 2021, pp. 1–6.
+[88] Y . Qu, H. Dai, Y . Zhuang, J. Chen, C. Dong, F. Wu, and S. Guo,
+“Decentralized federated learning for uav networks: Architecture,
+challenges, and opportunities,” IEEE Network, vol. 35, no. 6, pp. 156–
+162, 2021.
+[89] C. Li, G. Li, and P. K. Varshney, “Decentralized federated learning via
+mutual knowledge transfer,” IEEE Internet of Things Journal , vol. 9,
+no. 2, pp. 1136–1147, 2022.
+[90] J. Zhao, H. Zhu, F. Wang, R. Lu, Z. Liu, and H. Li, “Pvd-fl: A privacy-
+preserving and verifiable decentralized federated learning framework,”
+IEEE Transactions on Information Forensics and Security , vol. 17, pp.
+2059–2073, 2022.
+[91] A. Gholami, N. Torkzaban, and J. S. Baras, “Trusted decentralized
+federated learning,” in IEEE CCNC, 2022, pp. 1–6.
+[92] X. Wang, A. Lalitha, T. Javidi, and F. Koushanfar, “Peer-to-peer
+variational federated learning over arbitrary graphs,” IEEE Journal
+on Selected Areas in Information Theory , vol. 3, no. 2, pp. 172–182,
+2022.
+[93] Z. Li, J. Lu, S. Luo, D. Zhu, Y . Shao, Y . Li, Z. Zhang, Y . Wang, and
+C. Wu, “Towards effective clustered federated learning: A peer-to-peer
+framework with adaptive neighbor matching,” IEEE Transactions on
+Big Data, pp. 1–16, 2022.
+[94] S. Kalra, J. Wen, J. C. Cresswell, M. V olkovs, and H. Tizhoosh,
+“Decentralized federated learning through proxy model sharing,” Nature
+Communications, vol. 14, no. 1, p. 2899, 2023.
+[95] Z. Tang, S. Shi, B. Li, and X. Chu, “Gossipfl: A decentralized federated
+learning framework with sparsified and adaptive communication,” IEEE
+Transactions on Parallel and Distributed Systems , vol. 34, no. 3, pp.
+909–922, 2023.
+[96] D. Chai, J. Zhang, L. Yang, Y . Jin, L. Wang, K. Chen, and Q. Yang,
+“Efficient decentralized federated singular vector decomposition,” in
+2024 USENIX Annual Technical Conference (USENIX ATC 24) . Santa
+Clara, CA: USENIX Association, Jul. 2024, pp. 1029–1047. [Online].
+Available: https://www.usenix.org/conference/atc24/presentation/chai
+[97] J. Gu and S. X. Chen, “Statistical inference for decentralized federated
+learning,” The Annals of Statistics , vol. 52, no. 6, pp. 2931 – 2955,
+2024. [Online]. Available: https://doi.org/10.1214/24-AOS2452
+[98] M. Fang, Z. Zhang, Hairi, P. Khanduri, J. Liu, S. Lu, Y . Liu, and
+N. Gong, “Byzantine-robust decentralized federated learning,” in
+Proceedings of the 2024 on ACM SIGSAC Conference on Computer
+and Communications Security , ser. CCS ’24. New York, NY , USA:
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 23
+Association for Computing Machinery, 2024, p. 2874–2888. [Online].
+Available: https://doi.org/10.1145/3658644.3670307
+[99] C.-Y . Huang, K. Srinivas, X. Zhang, and X. Li, “Overcoming data and
+model heterogeneities in decentralized federated learning via synthetic
+anchors,” in Proceedings of the 41st International Conference on
+Machine Learning, ser. ICML’24. JMLR.org, 2024.
+[100] Y . Jia, M. Fang, and N. Z. Gong, “Competitive advantage attacks
+to decentralized federated learning,” in The Thirty-ninth Annual
+Conference on Neural Information Processing Systems , 2025. [Online].
+Available: https://openreview.net/forum?id=A7WfzMiffv
+[101] S. Zehtabi, D.-J. Han, R. Parasnis, S. Hosseinalipour, and
+C. Brinton, “Decentralized sporadic federated learning: A unified
+algorithmic framework with convergence guarantees,” in The Thirteenth
+International Conference on Learning Representations , 2025. [Online].
+Available: https://openreview.net/forum?id=cznqgb4DNv
+[102] G. Thompson, K. Yue, C.-W. Wong, and H. Dai, “NTK-DFL:
+Enhancing decentralized federated learning in heterogeneous settings
+via neural tangent kernel,” in Proceedings of the 42nd International
+Conference on Machine Learning , ser. Proceedings of Machine
+Learning Research, A. Singh, M. Fazel, D. Hsu, S. Lacoste-Julien,
+F. Berkenkamp, T. Maharaj, K. Wagstaff, and J. Zhu, Eds., vol.
+267. PMLR, 13–19 Jul 2025, pp. 59 470–59 491. [Online]. Available:
+https://proceedings.mlr.press/v267/thompson25a.html
+[103] X. Li, C. Wang, B. Su, Q. Long, and W. J. Su, “Mitigating
+the privacy–utility trade-off in decentralized federated learning via
+f-differential privacy,” in The Thirty-ninth Annual Conference on
+Neural Information Processing Systems , 2025. [Online]. Available:
+https://openreview.net/forum?id=YIGUv0BZCy
+[104] S. Bonnerjee, S. Karmakar, and W. B. Wu, “Sharp gaussian
+approximations for decentralized federated learning,” in The Thirty-ninth
+Annual Conference on Neural Information Processing Systems , 2025.
+[Online]. Available: https://openreview.net/forum?id=b7waOsMnq8
+[105] D. Fenoglio, P. Polverino, J. Quizi, M. Gjoreski, and M. Langheinrich,
+“Eris: Enhancing privacy and communication efficiency in serverless
+federated learning,” 2026. [Online]. Available: https://arxiv.org/abs/
+2602.08617
+[106] S. Qi, H. Ma, Y . Zou, P. Li, H. Gu, Z. Xie, L. Fan, X. Cheng, and
+D. Yu, “General backdoor-resilient federated learning via multi-armed
+bandit-based knowledge distillation,” IEEE Transactions on Information
+Forensics and Security, vol. 21, pp. 929–944, 2026.
+[107] S. Zhou, H. Huang, W. Chen, Z. Zheng, and S. Guo, “Pirate: A
+blockchain-based secure framework of distributed machine learning in
+5g networks,” 2019.
+[108] X. Wu, Z. Wang, J. Zhao, Y . Zhang, and Y . Wu, “Fedbc: Blockchain-
+based decentralized federated learning,” in Proc. of ICAICA ’20. IEEE,
+2020, pp. 217–221.
+[109] H. Kim, J. Park, M. Bennis, and S.-L. Kim, “Blockchained on-device
+federated learning,” IEEE Communications Letters , vol. 24, no. 6, pp.
+1279–1283, 2020.
+[110] Y . Liu, S. Sun, Z. Ai, S. Zhang, Z. Liu, and H. Yu, “Fedcoin: A
+peer-to-peer payment system for federated learning,” 2020.
+[111] Y . Hu, Y . Zhou, J. Xiao, and C. Wu, “Gfl: A decentralized federated
+learning framework based on blockchain,” 2021.
+[112] Y . Zhao, J. Zhao, L. Jiang, R. Tan, D. Niyato, Z. Li, L. Lyu, and Y . Liu,
+“Privacy-preserving blockchain-based federated learning for iot devices,”
+IEEE Internet of Things Journal , vol. 8, no. 3, pp. 1817–1829, 2021.
+[113] Z. Li, H. Yu, T. Zhou, L. Luo, M. Fan, Z. Xu, and G. Sun, “Byzantine
+resistant secure blockchained federated learning at the edge,” IEEE
+Network, vol. 35, no. 4, pp. 295–301, 2021.
+[114] J. Weng, J. Weng, J. Zhang, M. Li, Y . Zhang, and W. Luo, “Deepchain:
+Auditable and privacy-preserving deep learning with blockchain-based
+incentive,” IEEE Transactions on Dependable and Secure Computing ,
+vol. 18, no. 5, pp. 2438–2455, 2021.
+[115] M. Shayan, C. Fung, C. J. M. Yoon, and I. Beschastnikh, “Biscotti:
+A blockchain system for private and secure federated learning,” IEEE
+Transactions on Parallel and Distributed Systems , vol. 32, no. 7, pp.
+1513–1525, 2021.
+[116] L. Feng, Y . Zhao, S. Guo, X. Qiu, W. Li, and P. Yu, “Bafl: A
+blockchain-based asynchronous federated learning framework,” IEEE
+Trans. Comput., vol. 71, no. 5, pp. 1092–1103, 2022.
+[117] J. Li, Y . Shao, K. Wei, M. Ding, C. Ma, L. Shi, Z. Han, and H. V .
+Poor, “Blockchain assisted decentralized federated learning (blade-fl):
+Performance analysis and resource allocation,” IEEE Transactions on
+Parallel and Distributed Systems , vol. 33, no. 10, pp. 2401–2415, 2022.
+[118] Z. Yang, Y . Shi, Y . Zhou, Z. Wang, and K. Yang, “Trustworthy federated
+learning via blockchain,” IEEE Internet of Things Journal, vol. 10, no. 1,
+pp. 92–109, 2023.
+[119] B. Brik, A. Ksentini, and M. Bouaziz, “Federated learning for uavs-
+enabled wireless networks: Use cases, challenges, and open problems,”
+IEEE Access, vol. 8, pp. 53 841–53 849, 2020.
+[120] J. Benet, “IPFS - content addressed, versioned, P2P file system,” CoRR,
+vol. abs/1407.3561, 2014. [Online]. Available: http://arxiv.org/abs/1407.
+3561
+[121] Y . Chen, B. Li, Y . Yuan, L. Qi, Y . Li, T. Zhang, Z. Qin, and K. Ren,
+“Taught Well Learned Ill: Towards Distillation-conditional Backdoor
+Attack.”
+[122] Y . Zhao, M. Li, L. Lai, N. Suda, D. Civin, and V . Chandra,
+“Federated learning with non-iid data,” 2018. [Online]. Available:
+https://arxiv.org/abs/1806.00582
+[123] I. Abraham, G. Gueta, and D. Malkhi, “Hot-stuff the linear, optimal-
+resilience, one-message BFT devil,” CoRR, vol. abs/1803.05069, 2018.
+[Online]. Available: http://arxiv.org/abs/1803.05069
+[124] D. Yin, Y . Chen, R. Kannan, and P. Bartlett, “Byzantine-Robust
+Distributed Learning: Towards Optimal Statistical Rates,” in Proc. of
+ICML ’18, vol. 80. PMLR, 2018, pp. 5650–5659. [Online]. Available:
+https://proceedings.mlr.press/v80/yin18a.html
+[125] C. Xie, O. Koyejo, and I. Gupta, “Generalized Byzantine-Tolerant
+SGD,” CoRR, vol. abs/1802.10116, 2018. [Online]. Available:
+http://arxiv.org/abs/1802.10116
+[126] P. Blanchard, E. M. El Mhamdi, R. Guerraoui, and J. Stainer, “Machine
+learning with adversaries: Byzantine tolerant gradient descent,” in Proc.
+of NeurIPS ’17. Curran Associates Inc., 2017, pp. 118–128.
+[127] E. M. E. Mhamdi, R. Guerraoui, and S. Rouault, “The Hidden
+Vulnerability of Distributed Learning in Byzantium,” in Proc. of ICML
+’18, J. G. Dy and A. Krause, Eds., vol. 80. PMLR, 2018, pp. 3518–3527.
+[Online]. Available: http://proceedings.mlr.press/v80/mhamdi18a.html
+[128] Z. Ma, J. Ma, Y . Miao, Y . Li, and R. H. Deng, “ShieldFL: Mitigating
+model poisoning attacks in privacy-preserving federated learning,” IEEE
+Transactions on Information Forensics and Security , vol. 17, pp. 1639–
+1654, 2022.
+[129] E. Gabrielli, D. Belli, Z. Matrullo, V . Miori, and G. Tolomei, “Securing
+federated learning against extreme model poisoning attacks via mul-
+tidimensional time series anomaly detection on local updates,” IEEE
+Transactions on Information Forensics and Security , vol. 20, pp. 9610–
+9624, 2025.
+[130] Z. Zhang, X. Cao, J. Jia, and N. Z. Gong, “FLDetector: Defending
+federated learning against model poisoning attacks via detecting
+malicious clients,” in Proc. of KDD ’22. ACM, 2022, pp. 2545–2555.
+[131] C. Lewis, V . Varadharajan, and N. Noman, “Attacks against
+federated learning defense systems and their mitigation,” J. Mach.
+Learn. Res. , vol. 24, pp. 30:1–30:50, 2023. [Online]. Available:
+https://api.semanticscholar.org/CorpusID:259149829
+[132] Y . Fraboni, R. Vidal, and M. Lorenzi, “Free-rider Attacks on
+Model Aggregation in Federated Learning,” in AISTATS 2021
+- 24th International Conference on Artificial Intelligence and
+Statistics, San Diego, United States, Apr. 2021. [Online]. Available:
+https://hal.science/hal-03123638

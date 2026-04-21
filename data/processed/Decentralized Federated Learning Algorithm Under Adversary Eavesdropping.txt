@@ -1,0 +1,77 @@
+- Introduction
+ - High lighting the challenge of ==data silo== #Data_silo
+ - The need of data sharing while maintaining privacy
+ - ==TRADE==( Transmit Difference Weight) concept combined with a primal-dual stochastic gradient decent( SGD) algorithm to solve this without sacrificing model accuracy. #SGD
+ - Key Points:
+ - Problem: Adversaries can wiretap communication channels to intercept weight parameters, potentially recovering private data or inferring gradients.
+ - solution: By using TRADE primal-dual SGD algorithm that replaces transmitted weight parameters with ==differential weight parameters== to enhance privacy.
+- Related Works
+ - Summary: The authors review the two main DL frameworks
+ - CFL: Uses a central server
+ - DFL: relies on P2P communication
+ - Privacy mechanisms: The limitations regarding computation cost and model accuracy trade-offs.
+ - Homomorphic Encryption( HE)
+ - Differential Privacy( DP)
+ - Key Points:
+ - DFL implementation: Involves devices training locally and communicating parameters with neighbors( e.g. via gossip protocols or P2P environments)
+ - Limitations of Current Security:
+ - Homomorphic Encryption: Strong Privacy but operationally cumbersome with high computation/ communication burdens.
+ - Differential Privacy: Adds noise to protect data, which often results in diminished model accuracy.
+- Problem Formulation
+ - This section mathematically defines the federated learning objective function and the threat model. The goal is to minimize the weighted sum of local loss function across all devices. Assuming an external adversary capable of ==wiretapping all outgoing links== to deduce the global model.
+ - Key points:
+ - Optimization Objective:
+ $$min \sum p_i F_i(w)$$, where $F_i(w)$ is the local loss function.
+ - Graph Theory: The communication topology is modeled as an undirected connected graph $G = (V, E, A)$
+ - Adversary Model: An external eavesdropper intercepts weight parameters to infer private information.
+- Privacy-Preserving Decentralized Federated Learning Algorithm
+ - ==This is the core technical section==
+ - TRADE concept and Algorithm 1( Decentralized TRADE Primal-Dual SGD).
+ - Theoretical analysis proving that the algorithm maintains the same convergence properties as standard primal-dual SGD while ensuring a lower bound on the adversary's estimation error.
+ - Key points:
+ - TRADE concept: Instead of transmitted the weight $w$, device transmit the difference weight $q_i^k = w_i^(k+1) - w_i^k$ to neighbors.
+ - Convergence( Theorem 1): The algorithm achieves a linear speedup convergence rate of $O(\frac{1}{\sqrt{nT}})$ for nonconvex loss function( or linear convergence under the Polyak-Lojasiewicz condition).
+ - Privacy( Theorem 2): It is mathematically proven that there is a positive lower bound( c>0) on the expected value of the eavesdropper's estimation error.
+ - This means the adversary cannot accurately deduce the actual weight parameters.
+- Experimental Results
+ - The authors validate the algorithm using the CWRU dataset( fault diagnosis) and CIFAR-10/ CIFAR-100 datasets( image clssification)#CWRU #CiFAR. Compare the performance against ==Vanilla( Single device)== and ==FedAvg( centralized FL)== and simulate eavesdropping attacks to verify privacy protection.#Vanilla #FedAvg
+ - key points:
+ - Accuracy: The proposed algorithm achieves accuracy comparable to Centralized FL( FedAvg).
+ - CWRU: 0.9947( vs FedAvg 0.9957)
+ - CIFAR-10: 0.9015( vs FedAvg 0.9012)
+ - Privacy Performance: Experiments confirm that even as teh probabillity of successful eavesdropping increases, the adversary''s estimation error decreases but never reaches zero, validating the theoretical privacy lower bound.
+- Conclusions and Future Directions
+ - TRADE concept successfully protects privacy in DFL without compromising convergence or accuracy.
+ - Key points:
+ - Future Research Areas:
+ - Integrating TRADE with ==quantizers== or ==event-triggered schemes== to reduce communication overhead.
+ - Using ==asynchronous methods== to reduce device idle time.
+ - Extending the defense to ==honest-but-curious== attacks.
+- ---
+- Topology requirements and convergence conditions for the DFL.
+ id:: 697a9c87-9e5f-48e9-aa84-171d7d3a04c3
+ - Network Topology Requirements:
+ - Undirected Connected Graph:
+ - Undirected: Communication links between devices are bidirectional.
+ - Connected: There exists a path between every pair of distinct devices. This ensures that parameters can eventually propagate across the entire network, preventing isolated clusters.
+ - Adjacency Matrix: The adjacency matrix $A=[a_{ij}]$ is defined such that $a_{ij} > 0$ when devices $i$ and $j$ can communicate, and 0 otherwise.
+ - Convergence Conditions and Assumptions:
+ To prove the convergence of the algorithm ( Theorem 1), the authors rely on specific mathematical assumptions.
+ - Objective function Properties:
+ - Smoothness: Each local loss function $f_i(w)$ is assumed to be smooth ( differentiable with a continuous gradient).
+ - Finite Lower Bound: The minimum functions value optimization problem must be finite.
+ - Stochastic Gradient Assumption( Assumption 1):
+ - Unbiased Estimation: The expected value of the stochastic gradient $g_i$ sampled by a device must equal the true gradient, i.e. $E[g_i] = \nabla f_i$
+ - Bounded Variance: The variance of the stochastic gradient must be bounded.
+ - Independence: The random variables involved( e.g., sampling noise) are independent of each other.
+ - Convergence Results:
+ Under the topology and assumptions described above, the paper establishes the following convergence behaviors:
+ - General Nonconvex Case:
+ - If the loss function is smooth but nonconvex, the algorithm converges sublinearly to a stationary point.
+ - If achieves a convergence rate of $O(\frac{1}{\sqrt {nT}})$( where $n$ is the number of devices and $T$ is the number of iterations), demonstrating a linear speedup compared to single-device training.
+ - Under the Poly-Lojasiewicz( P-L) Condition:
+ - If the global loss function satisfies the P-L condition( which is weaker than strong convexity and allows for non-unique global minimizers), the algorithm converges linearly to an exact global optimal point.
+ - Under this condition, the convergence rate improves to $O(\frac{1}{\sqrt {nT}})$.
+ - The algorithm requires a ==connected network graph== and ==standard stochastic gradient== assumptions to guarantee convergence rates comparable to centralized methods, while additionally providing privacy protection through the TRADE mechanism.
+ - #Convergence_conditions #Topology_assumption
+- #DFL
