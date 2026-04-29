@@ -1,23 +1,6 @@
-# HW3 — Decentralized Federated Learning RAG System
+# PaperRAG
 
 ## 1. 專案簡介
-
-### 知識主題
-
-分散式聯邦學習聚合為主要焦點
-
-選擇理由：這是我大學的專題並延伸作為我的碩論研究方向。
-
-### 資料來源規模
-
-| 指標 | 數值 |
-|------|------|
-| 文件總數 | 20 份（處理後 20 個 `.txt`） |
-| 格式 | PDF（11 份）＋ Markdown（9 份） |
-| 時間範圍 | 約 2019–2024 年學術論文 |
-| 語言 | 英文 |
-
-涵蓋子主題：去中心化 FL 綜述、安全與隱私、通訊優化、聚合策略、邊緣計算、群體學習（Swarm Learning）等。
 
 ### 系統架構與技術選型
 
@@ -233,19 +216,7 @@ python skill_builder.py --model gemini-2.5-flash --output skill.md
 
 ---
 
-## 5. 資料來源聲明
-
-| 來源 | 類型 | 授權/合規依據 | 數量 |
-| --- | --- | --- | --- |
-| arXiv 論文 | PDF | CC BY 4.0 | 4 |
-| arXiv 論文 | PDF |  arXiv Non-exclusive Dist. 1.0 | 3 |
-| arXiv 論文 | PDF | CC BY-NC-SA 4.0 | 1 |
-| IEEE 論文 | PDF | CC BY 4.0 | 3 |
-| 個人筆記 | MarkDown | 個人著作 | 9 |
-
----
-
-## 6. 系統限制與未來改進
+## 5. 系統限制與未來改進
 
 ### 目前限制
 
