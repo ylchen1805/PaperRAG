@@ -33,7 +33,7 @@ LITELLM_API_KEY = os.getenv("LITELLM_API_KEY")
 LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-DEFAULT_MODEL = "gpt-oss:20b"
+DEFAULT_MODEL = "qwen-local"
 DEFAULT_TOP_K = 5
 
 SYSTEM_PROMPT = (
@@ -47,23 +47,34 @@ SYSTEM_PROMPT = (
 # Step 1: Embed query
 # ---------------------------------------------------------------------------
 
+
 def embed_query(text: str) -> list[float]:
     if EMBEDDING_PROVIDER == "sentence-transformers":
         from sentence_transformers import SentenceTransformer
+
         model = SentenceTransformer(EMBEDDING_MODEL)
         return model.encode([text])[0].tolist()
     elif EMBEDDING_PROVIDER == "huggingface":
         import requests
+
         hf_token = os.getenv("HF_TOKEN", "")
         api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{EMBEDDING_MODEL}"
         headers = {"Authorization": f"Bearer {hf_token}"}
-        resp = requests.post(api_url, headers=headers, json={"inputs": [text], "options": {"wait_for_model": True}})
+        resp = requests.post(
+            api_url,
+            headers=headers,
+            json={"inputs": [text], "options": {"wait_for_model": True}},
+        )
         resp.raise_for_status()
         return resp.json()[0]
     elif EMBEDDING_PROVIDER == "ollama":
         import requests
+
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        resp = requests.post(f"{base_url}/api/embeddings", json={"model": EMBEDDING_MODEL, "prompt": text})
+        resp = requests.post(
+            f"{base_url}/api/embeddings",
+            json={"model": EMBEDDING_MODEL, "prompt": text},
+        )
         resp.raise_for_status()
         return resp.json()["embedding"]
     else:
@@ -74,13 +85,16 @@ def embed_query(text: str) -> list[float]:
 # Step 2: Retrieve candidates from pgvector
 # ---------------------------------------------------------------------------
 
+
 def get_conn():
     import psycopg
+
     return psycopg.connect(PGVECTOR_CONNECTION_STRING)
 
 
 def retrieve_chunks(query_vec: list[float], candidates: int) -> list[dict]:
     from pgvector.psycopg import register_vector
+
     vec = np.array(query_vec)
     with get_conn() as conn:
         register_vector(conn)
@@ -105,8 +119,10 @@ def retrieve_chunks(query_vec: list[float], candidates: int) -> list[dict]:
 # Step 3: Rerank with cross-encoder
 # ---------------------------------------------------------------------------
 
+
 def rerank(query: str, chunks: list[dict], top_k: int) -> list[dict]:
     from sentence_transformers import CrossEncoder
+
     model = CrossEncoder(RERANKER_MODEL)
     pairs = [(query, c["text"]) for c in chunks]
     scores = model.predict(pairs)
@@ -117,6 +133,7 @@ def rerank(query: str, chunks: list[dict], top_k: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Step 4: Build prompt messages
 # ---------------------------------------------------------------------------
+
 
 def build_messages(
     history: list[dict],
@@ -142,8 +159,10 @@ def build_messages(
 # Step 5: Call LLM via LiteLLM
 # ---------------------------------------------------------------------------
 
+
 def call_llm(messages: list[dict], model: str) -> str:
     import litellm
+
     # Gemini models use OPENAI_API_KEY (a separate key with Gemini access on the proxy).
     # All other models use LITELLM_API_KEY routed through the OpenAI-compatible proxy.
     if model.startswith("gemini"):
@@ -164,14 +183,19 @@ def call_llm(messages: list[dict], model: str) -> str:
 # Step 6: Display sources
 # ---------------------------------------------------------------------------
 
+
 def show_sources(chunks: list[dict]):
-    parts = [f"[{i}] {c['source']} chunk #{c['chunk_index']}" for i, c in enumerate(chunks, 1)]
+    parts = [
+        f"[{i}] {c['source']} chunk #{c['chunk_index']}"
+        for i, c in enumerate(chunks, 1)
+    ]
     print(f"\nSources: {', '.join(parts)}")
 
 
 # ---------------------------------------------------------------------------
 # Query modes
 # ---------------------------------------------------------------------------
+
 
 def run_query(question: str, top_k: int, model: str, history: list[dict]) -> str:
     print("Embedding query...", end=" ", flush=True)
@@ -219,7 +243,7 @@ def interactive_mode(top_k: int, model: str):
         # Keep last 3 turns (6 messages: user+assistant pairs)
         history.append({"role": "user", "content": question})
         history.append({"role": "assistant", "content": answer})
-        history = history[-(3 * 2):]
+        history = history[-(3 * 2) :]
         print()
 
 
@@ -227,11 +251,26 @@ def interactive_mode(top_k: int, model: str):
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(description="RAG query interface")
-    parser.add_argument("--query", "-q", type=str, help="Single query (non-interactive)")
-    parser.add_argument("--top-k", "-k", type=int, default=DEFAULT_TOP_K, help="Number of chunks to retrieve (default: 5)")
-    parser.add_argument("--model", "-m", type=str, default=DEFAULT_MODEL, help=f"LLM model to use (default: {DEFAULT_MODEL}). Examples: gpt-oss:20b, gemini-2.5-flash")
+    parser.add_argument(
+        "--query", "-q", type=str, help="Single query (non-interactive)"
+    )
+    parser.add_argument(
+        "--top-k",
+        "-k",
+        type=int,
+        default=DEFAULT_TOP_K,
+        help="Number of chunks to retrieve (default: 5)",
+    )
+    parser.add_argument(
+        "--model",
+        "-m",
+        type=str,
+        default=DEFAULT_MODEL,
+        help=f"LLM model to use (default: {DEFAULT_MODEL}). Examples: gpt-oss:20b, gemini-2.5-flash",
+    )
     args = parser.parse_args()
 
     if not PGVECTOR_CONNECTION_STRING:

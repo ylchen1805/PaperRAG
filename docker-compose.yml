@@ -1,7 +1,7 @@
 services:
   pgvector:
     image: pgvector/pgvector:pg16
-    container_name: hw3_pgvector
+    container_name: PaperRAG
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
