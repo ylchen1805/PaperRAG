@@ -40,10 +40,12 @@ PGVECTOR_CONNECTION_STRING = os.getenv("PGVECTOR_CONNECTION_STRING")
 # Stage 1: Clean raw files → data/processed/
 # ---------------------------------------------------------------------------
 
+
 def extract_text(path: Path) -> str:
     suffix = path.suffix.lower()
     if suffix == ".pdf":
         from pypdf import PdfReader
+
         reader = PdfReader(path)
         return "\n".join(page.extract_text() or "" for page in reader.pages)
     elif suffix in (".md", ".txt"):
@@ -53,10 +55,10 @@ def extract_text(path: Path) -> str:
 
 
 def clean_text(text: str) -> str:
-    text = text.replace("\x00", "")               # strip NUL bytes (PDF artefact)
-    text = re.sub(r"<[^>]+>", "", text)           # strip HTML tags
-    text = re.sub(r"[ \t]+", " ", text)           # normalize spaces
-    text = re.sub(r"\n{3,}", "\n\n", text)        # collapse excess blank lines
+    text = text.replace("\x00", "")  # strip NUL bytes (PDF artefact)
+    text = re.sub(r"<[^>]+>", "", text)  # strip HTML tags
+    text = re.sub(r"[ \t]+", " ", text)  # normalize spaces
+    text = re.sub(r"\n{3,}", "\n\n", text)  # collapse excess blank lines
     return text.strip()
 
 
@@ -78,8 +80,7 @@ def clean_raw_files(rebuild: bool) -> list[str]:
     updated_stems = []
 
     raw_files = [
-        p for p in RAW_DIR.iterdir()
-        if p.suffix.lower() in (".pdf", ".md", ".txt")
+        p for p in RAW_DIR.iterdir() if p.suffix.lower() in (".pdf", ".md", ".txt")
     ]
 
     if rebuild:
@@ -115,7 +116,10 @@ def clean_raw_files(rebuild: bool) -> list[str]:
 # Stage 2: Chunk
 # ---------------------------------------------------------------------------
 
-def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+
+def chunk_text(
+    text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list[str]:
     chunks = []
     i = 0
     while i < len(text):
@@ -141,25 +145,36 @@ def load_chunks(stems: list[str]) -> list[tuple[str, int, str]]:
 # Stage 3: Embed
 # ---------------------------------------------------------------------------
 
+
 def embed(texts: list[str]) -> list[list[float]]:
     if EMBEDDING_PROVIDER == "sentence-transformers":
         from sentence_transformers import SentenceTransformer
+
         model = SentenceTransformer(EMBEDDING_MODEL)
         return model.encode(texts, show_progress_bar=True).tolist()
     elif EMBEDDING_PROVIDER == "huggingface":
         import requests
+
         hf_token = os.getenv("HF_TOKEN", "")
         api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{EMBEDDING_MODEL}"
         headers = {"Authorization": f"Bearer {hf_token}"}
-        resp = requests.post(api_url, headers=headers, json={"inputs": texts, "options": {"wait_for_model": True}})
+        resp = requests.post(
+            api_url,
+            headers=headers,
+            json={"inputs": texts, "options": {"wait_for_model": True}},
+        )
         resp.raise_for_status()
         return resp.json()
     elif EMBEDDING_PROVIDER == "ollama":
         import requests
+
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         vectors = []
         for text in texts:
-            resp = requests.post(f"{base_url}/api/embeddings", json={"model": EMBEDDING_MODEL, "prompt": text})
+            resp = requests.post(
+                f"{base_url}/api/embeddings",
+                json={"model": EMBEDDING_MODEL, "prompt": text},
+            )
             resp.raise_for_status()
             vectors.append(resp.json()["embedding"])
         return vectors
@@ -186,6 +201,10 @@ CREATE INDEX IF NOT EXISTS idx_doc_chunks_source ON document_chunks(source);
 
 def get_conn():
     import psycopg
+
+    if not PGVECTOR_CONNECTION_STRING:
+        print("ERROR: PGVECTOR_CONNECTION_STRING is not set in .env", file=sys.stderr)
+        sys.exit(1)
     return psycopg.connect(PGVECTOR_CONNECTION_STRING)
 
 
@@ -214,8 +233,10 @@ def truncate_table(conn):
 
 def insert_chunks(conn, rows: list[tuple[str, int, str, list[float]]]):
     from pgvector.psycopg import register_vector
+
     register_vector(conn)
     import numpy as np
+
     with conn.cursor() as cur:
         cur.executemany(
             "INSERT INTO document_chunks (source, chunk_index, text, embedding) VALUES (%s, %s, %s, %s)",
@@ -228,9 +249,14 @@ def insert_chunks(conn, rows: list[tuple[str, int, str, list[float]]]):
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(description="RAG data ingestion pipeline")
-    parser.add_argument("--rebuild", action="store_true", help="Clear processed data and rebuild entire index")
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Clear processed data and rebuild entire index",
+    )
     args = parser.parse_args()
 
     if not PGVECTOR_CONNECTION_STRING:
@@ -253,7 +279,9 @@ def main():
     vectors = embed(texts)
 
     print("\n=== Stage 4: Write to pgvector ===")
-    rows = [(src, idx, txt, vec) for (src, idx, txt), vec in zip(chunk_records, vectors)]
+    rows = [
+        (src, idx, txt, vec) for (src, idx, txt), vec in zip(chunk_records, vectors)
+    ]
     with get_conn() as conn:
         ensure_schema(conn)
         if args.rebuild:
